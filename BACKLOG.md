@@ -33,25 +33,26 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 4 — Export — under way (`QRG-012`,
-  `QRG-013` complete).
-* **Recommended next item:** `QRG-014` — Add export settings and filename
-  handling (default/safe filenames; currently both PNG and SVG export
-  always suggest the fixed name `qrcode.png`/`qrcode.svg`).
+* **Current milestone:** Milestone 4 — Export — complete (`QRG-012`
+  through `QRG-014`). Milestone 5 — Scannability and quality — next.
+* **Recommended next item:** `QRG-015` — Add automated QR decoding tests
+  (already partially done — see that item's own entry — remaining scope
+  is a dedicated plain/coloured, non-logo decoding test for symmetry).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (70 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (79 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
   validation and live preview refresh, contrast/polarity warnings, logo
   selection/rejection/removal, logo placement and size adjustment with a
-  live decoding check, and both PNG and SVG export (no-URL validation, a
-  plain export, a logo-bearing export, and dialog cancellation); and
-  direct pixel/byte-level/XML-structure checks confirming chosen colours
-  render correctly, logo files are never modified on disk, finder-pattern
-  pixels are never touched, exported PNGs reopen and decode to the exact
-  URL, and exported SVGs are well-formed with untouched vector modules.
+  live decoding check, both PNG and SVG export (no-URL validation, a
+  plain export, a logo-bearing export, and dialog cancellation), and
+  distinct default filenames suggested for distinct URLs; and direct
+  pixel/byte-level/XML-structure checks confirming chosen colours render
+  correctly, logo files are never modified on disk, finder-pattern pixels
+  are never touched, exported PNGs reopen and decode to the exact URL,
+  and exported SVGs are well-formed with untouched vector modules.
 
 ---
 
@@ -581,18 +582,45 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-014 — Add export settings and filename handling
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Sensible default/safe filenames and export settings.
 * **Acceptance criteria:**
-  * Sensible default filename.
-  * Filesystem-safe filename generation.
-  * "Last export directory" preference only if local preferences
-    (`QRG` later-scope item) are separately approved.
-  * No URL history stored (FR-063).
-  * Clear success status shown after export.
-* **Dependencies:** `QRG-012`, `QRG-013`.
-* **Validation requirements:** Unit tests for filename sanitisation; manual
-  check of the success status.
+  * Sensible default filename. ✅
+    `export_service.default_export_filename(url, extension)` derives it
+    from the URL itself (e.g. `example.com-leaflet-campaign-utm-1.png`),
+    so exporting for different URLs no longer suggests the same generic
+    name every time — verified directly that two different URLs produce
+    two different suggested filenames.
+  * Filesystem-safe filename generation. ✅ `safe_filename_stem` keeps
+    only letters, digits, dots, hyphens and underscores (safe on Linux,
+    Windows and macOS alike), collapsing everything else — spaces,
+    `: / ? & < > "`, non-ASCII characters — to a single hyphen, trims to
+    60 characters, and falls back to `"qrcode"` if nothing safe remains
+    (e.g. a URL that is only a scheme).
+  * "Last export directory" preference only if local preferences are
+    separately approved. ✅ **Deliberately not implemented** — local
+    preferences remain **Proposed**, not committed scope (see "Later or
+    proposed items" below), so no directory is remembered between
+    exports; the native save dialog's own default starting location is
+    used as-is.
+  * No URL history stored (FR-063). ✅ Confirmed by inspection — the
+    filename is derived from the URL only at the moment of export and is
+    never written anywhere or retained; this was already true and
+    remains true.
+  * Clear success status shown after export. ✅ Unchanged from `QRG-012`/
+    `QRG-013` (`"Exported PNG to <name>."` / `"Exported SVG to <name>."`)
+    — already satisfied that criterion; re-confirmed still accurate here.
+* **Validation:** `pytest -q` → 79 passed (9 new): known-value filename
+  stems (query strings, ports, punctuation), a fuzz-style check that only
+  safe characters ever appear in the output, truncation of very long
+  input, fallback to `"qrcode"` for all-unsafe input, extension
+  correctness, determinism for the same URL, and distinctness for
+  different URLs. `ruff check .` and `ruff format --check .` → both
+  clean. A scripted smoke test intercepted `asksaveasfilename` to inspect
+  the suggested filename directly: confirmed distinct, safe filenames for
+  two different URLs, for both PNG and SVG.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
+  This closes Milestone 4 (Export): `QRG-012` through `QRG-014`.
 
 ---
 

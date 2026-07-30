@@ -12,8 +12,10 @@ from qr_code_generator.services.export_service import (
     DEFAULT_SVG_SCALE,
     PNG_SIZE_PRESETS,
     ExportError,
+    default_export_filename,
     render_png_for_export,
     render_svg_for_export,
+    safe_filename_stem,
     save_png,
     save_svg,
 )
@@ -185,3 +187,47 @@ def test_save_svg_raises_export_error_for_an_unwritable_path(tmp_path):
 
     with pytest.raises(ExportError):
         save_svg(svg_text, unwritable_path)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("https://example.com", "example.com"),
+        ("http://localhost:8080/test", "localhost-8080-test"),
+        ("https://example.com/a/b?x=1&y=2", "example.com-a-b-x-1-y-2"),
+    ],
+)
+def test_safe_filename_stem_known_values(text, expected):
+    assert safe_filename_stem(text) == expected
+
+
+def test_safe_filename_stem_contains_only_safe_characters():
+    stem = safe_filename_stem('https://exa mple.com/päth?a=<b>&c="d"')
+    assert all(character.isalnum() or character in "._-" for character in stem)
+
+
+def test_safe_filename_stem_truncates_long_input():
+    long_url = "https://" + "a" * 200 + ".com/very/long/path"
+    stem = safe_filename_stem(long_url)
+    assert len(stem) <= 60
+
+
+def test_safe_filename_stem_falls_back_when_nothing_safe_remains():
+    assert safe_filename_stem("https://") == "qrcode"
+    assert safe_filename_stem("???///???") == "qrcode"
+
+
+def test_default_export_filename_uses_the_requested_extension():
+    assert default_export_filename("https://example.com", "png").endswith(".png")
+    assert default_export_filename("https://example.com", "svg").endswith(".svg")
+
+
+def test_default_export_filename_is_deterministic():
+    url = "https://example.com/page"
+    assert default_export_filename(url, "png") == default_export_filename(url, "png")
+
+
+def test_default_export_filename_differs_for_different_urls():
+    first = default_export_filename("https://example.com/page-one", "png")
+    second = default_export_filename("https://example.com/page-two", "png")
+    assert first != second

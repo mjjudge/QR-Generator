@@ -25,6 +25,7 @@ from qr_code_generator.services.export_service import (
     DEFAULT_PNG_SIZE_LABEL,
     PNG_SIZE_PRESETS,
     ExportError,
+    default_export_filename,
     render_png_for_export,
     render_svg_for_export,
     save_png,
@@ -240,7 +241,7 @@ class MainWindow(ttk.Frame):
             title="Export as PNG",
             defaultextension=".png",
             filetypes=[("PNG image", "*.png")],
-            initialfile="qrcode.png",
+            initialfile=default_export_filename(url, "png"),
         )
         if not path:
             return
@@ -270,7 +271,7 @@ class MainWindow(ttk.Frame):
             title="Export as SVG",
             defaultextension=".svg",
             filetypes=[("SVG image", "*.svg")],
-            initialfile="qrcode.svg",
+            initialfile=default_export_filename(url, "svg"),
         )
         if not path:
             return

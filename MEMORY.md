@@ -149,6 +149,15 @@ chronological diary — see "Editing rules" at the end.
   there is no custom overwrite-confirmation code to test, and this
   reliance has not been manually verified interactively on a real Ubuntu
   desktop in this environment (see "Open decisions").
+* Export filenames are suggested, not remembered (`QRG-014`):
+  `export_service.default_export_filename` derives a distinct, filesystem
+  -safe suggestion from the URL itself (e.g.
+  `example.com-leaflet-campaign-utm-1.png`), replacing the previous fixed
+  `qrcode.png`/`qrcode.svg` for every export. "Last export directory" was
+  deliberately **not** implemented — local preferences remain unapproved,
+  proposed-only scope (see "Open decisions" and the backlog's "Later or
+  proposed items"), so the native save dialog's own default starting
+  location is used as-is, every time.
 * SVG export (`QRG-013`) has **no size presets** — vector output scales
   losslessly, so there is no "target resolution" the way PNG needs one.
   The QR modules are Segno's own SVG output, used completely unmodified
@@ -293,8 +302,13 @@ application, as of this document's creation:
   the PNG one, same validation-then-native-dialog pattern, no size
   dropdown (not applicable to vector output). Verified directly: exported
   files are well-formed XML with the expected structure, both with and
-  without a logo present. **Not yet implemented:** sensible default/safe
-  filenames beyond the fixed `qrcode.png`/`qrcode.svg` (`QRG-014`).
+  without a logo present.
+* Both export dialogs now suggest a distinct, safe, URL-derived default
+  filename rather than a fixed generic one (`QRG-014`). Verified directly
+  by intercepting the save dialog: two different URLs produce two
+  different suggested filenames, for both PNG and SVG. **Not yet
+  implemented:** remembering the last export directory (deliberately, not
+  an oversight — see "Open decisions").
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
@@ -314,16 +328,16 @@ finder-pattern pixels left untouched; and logo-bearing codes decoding to
 the exact URL for both the shortest and a typical URL). All 48 tests
 pass.
 
-**What is not yet implemented:** sensible default/safe filename handling
-beyond the fixed `qrcode.png`/`qrcode.svg` (`QRG-014`); any preferences
-storage; a dedicated decoding test for a plain/coloured (non-logo) QR
+**What is not yet implemented:** any preferences storage (including a
+remembered last export directory — deliberately deferred, not an
+oversight); a dedicated decoding test for a plain/coloured (non-logo) QR
 code (remaining `QRG-015` scope); any packaging; any CI configuration.
 
-**Current milestone:** Milestone 4 — Export — under way (`QRG-012`,
-`QRG-013` complete).
+**Current milestone:** Milestone 4 — Export — complete (`QRG-012`
+through `QRG-014`). Milestone 5 — Scannability and quality — next.
 
-**Recommended next backlog item:** `QRG-014` — Add export settings and
-filename handling (see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-015` — Add automated QR decoding
+tests (remaining scope only — see `BACKLOG.md`).
 
 ## Open decisions
 

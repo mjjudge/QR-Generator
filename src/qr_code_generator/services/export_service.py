@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import io
+import re
 from pathlib import Path
 
 import segno
@@ -48,6 +49,38 @@ DEFAULT_PNG_SIZE_LABEL = "Medium (1024 px)"
 
 class ExportError(Exception):
     """Raised when a QR code image cannot be rendered or saved for export."""
+
+
+#: Only these characters are kept as-is in a generated filename stem;
+#: everything else collapses to a single hyphen.
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+_MAX_STEM_LENGTH = 60
+_DEFAULT_STEM = "qrcode"
+
+
+def safe_filename_stem(text: str) -> str:
+    """A filesystem-safe filename stem derived from `text` (e.g. a URL).
+
+    Keeps only letters, digits, dots, hyphens and underscores -- safe on
+    Linux, Windows and macOS alike -- collapsing everything else
+    (`:`, `/`, `?`, spaces, non-ASCII characters, ...) to a single hyphen,
+    trimming to a sane length, and falling back to a sensible default if
+    nothing safe remains (e.g. for a URL that is *only* a scheme).
+    """
+    without_scheme = re.sub(r"^https?://", "", text)
+    collapsed = _UNSAFE_FILENAME_CHARS.sub("-", without_scheme).strip("-.")
+    truncated = collapsed[:_MAX_STEM_LENGTH].strip("-.")
+    return truncated or _DEFAULT_STEM
+
+
+def default_export_filename(url: str, extension: str) -> str:
+    """A sensible default filename for exporting `url` as `extension`
+    (e.g. ``"png"`` or ``"svg"``), derived from the URL so exports for
+    different URLs don't all collide with one generic name (FR-063: this
+    is used only to *suggest* a filename in the save dialog -- it is
+    never written anywhere or kept as history).
+    """
+    return f"{safe_filename_stem(url)}.{extension}"
 
 
 def _scale_for_target_size(symbol_modules: int, target_pixels: int) -> int:
