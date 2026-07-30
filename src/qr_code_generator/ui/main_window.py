@@ -7,9 +7,10 @@ generation are delegated to the service layer.
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk
+from pathlib import Path
+from tkinter import filedialog, ttk
 
-from PIL import ImageTk
+from PIL import Image, ImageTk
 
 from qr_code_generator.models.colour import Colour
 from qr_code_generator.models.qr_settings import QRSettings
@@ -20,6 +21,7 @@ from qr_code_generator.services.colour_service import (
     get_contrast_warning,
     parse_hex,
 )
+from qr_code_generator.services.logo_service import LogoValidationError, load_logo
 from qr_code_generator.services.qr_service import generate_qr_image
 from qr_code_generator.services.validation_service import (
     URLValidationError,
@@ -27,6 +29,8 @@ from qr_code_generator.services.validation_service import (
     validate_url,
 )
 from qr_code_generator.ui.colour_control import ColourControl
+
+_LOGO_FILE_TYPES = [("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
 
 WINDOW_TITLE = "QR Code Generator"
 WINDOW_SIZE = "480x760"
@@ -45,6 +49,7 @@ class MainWindow(ttk.Frame):
         self._qr_photo: ImageTk.PhotoImage | None = None
         self._foreground_colour: Colour = parse_hex(DEFAULT_FOREGROUND_COLOUR)
         self._background_colour: Colour = parse_hex(DEFAULT_BACKGROUND_COLOUR)
+        self._logo_image: Image.Image | None = None
 
         self._build_widgets()
         self.pack(fill=tk.BOTH, expand=True)
@@ -78,6 +83,18 @@ class MainWindow(ttk.Frame):
         )
         self._background_control.pack(fill=tk.X, pady=(0, 8))
 
+        logo_frame = ttk.LabelFrame(self, text="Logo (optional)", padding=8)
+        logo_frame.pack(fill=tk.X, pady=(0, 8))
+
+        self._logo_filename_var = tk.StringVar(value="No logo selected.")
+        ttk.Label(logo_frame, textvariable=self._logo_filename_var).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(logo_frame, text="Choose image…", command=self._on_choose_logo).pack(
+            side=tk.LEFT
+        )
+        ttk.Button(logo_frame, text="Remove", command=self._on_remove_logo).pack(
+            side=tk.LEFT, padx=(4, 0)
+        )
+
         ttk.Button(self, text="Generate", command=self._on_generate).pack(anchor=tk.W, pady=(0, 12))
 
         preview_frame = ttk.Frame(self, borderwidth=1, relief=tk.SUNKEN)
@@ -100,6 +117,37 @@ class MainWindow(ttk.Frame):
     def _on_background_changed(self, colour: Colour) -> None:
         self._background_colour = colour
         self._refresh_preview_if_url_valid()
+
+    def _on_choose_logo(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Choose a central image", filetypes=_LOGO_FILE_TYPES
+        )
+        if path:
+            self._apply_logo_path(path)
+
+    def _apply_logo_path(self, path: str) -> None:
+        """Load and validate the image at ``path``, updating logo state on success.
+
+        Split out from `_on_choose_logo` so it can be exercised directly
+        (e.g. by a scripted check) without going through the native file
+        dialog.
+        """
+        name = Path(path).name
+        try:
+            image = load_logo(path)
+        except LogoValidationError as error:
+            self._status_var.set(str(error))
+            return
+        self._logo_image = image
+        self._logo_filename_var.set(f"{name} ({image.width}×{image.height})")
+        self._status_var.set(
+            f"Logo '{name}' loaded. Placing it on the QR code is not yet supported."
+        )
+
+    def _on_remove_logo(self) -> None:
+        self._logo_image = None
+        self._logo_filename_var.set("No logo selected.")
+        self._status_var.set("Logo removed.")
 
     def _refresh_preview_if_url_valid(self) -> None:
         """Re-render the preview after a setting change (FR-042), without

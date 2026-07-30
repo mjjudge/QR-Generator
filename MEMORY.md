@@ -91,6 +91,11 @@ chronological diary — see "Editing rules" at the end.
   reading of FR-027 for this release: rather than support a transparent
   background that could silently fail to scan, transparency simply is not
   an option yet.
+* `services/logo_service.load_logo` validates a candidate logo file by its
+  actual decoded Pillow format (`image.format`), never by its file
+  extension — confirmed to correctly reject a genuine BMP saved with a
+  `.png` extension. It returns an independent in-memory copy and never
+  modifies the source file (FR-040).
 
 ## QR safety rules
 
@@ -204,28 +209,40 @@ application, as of this document's creation:
   ratio; white-on-black shows a light-on-dark polarity warning even though
   its contrast ratio is high. These are Warnings, not Errors — generation
   is never blocked.
+* Logo file selection and validation are implemented (`QRG-009`): a
+  "Choose image…"/"Remove" pair in the main window loads and validates a
+  PNG/JPEG/JPG file via `logo_service.load_logo`. Verified directly: a
+  valid PNG is accepted and its filename/dimensions shown; a corrupt file
+  and a BMP disguised with a `.png` extension are both rejected with a
+  clear message, leaving any previously-selected valid logo untouched;
+  Remove clears the selection. **The selected logo is not yet placed on
+  the QR code** — this is `QRG-010`, and the status message says so
+  explicitly so as not to imply more than has been built.
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
 characters preserved exactly, no warning at/below the 300-character
 threshold, warning above it, no network calls made), `tests/test_qr_service.py`
 (a PIL image is produced; the exact supplied URL is what gets passed to
-Segno), and `tests/test_colour_service.py` (HEX/RGB/CMYK parsing and
+Segno), `tests/test_colour_service.py` (HEX/RGB/CMYK parsing and
 validation; known-value HEX↔RGB↔CMYK round trips for black, white and pure
 red; relative luminance and contrast ratio known values; and contrast/
-polarity warning behaviour). All 33 tests pass.
+polarity warning behaviour), and `tests/test_logo_service.py` (valid PNG
+and JPEG/JPG loading; missing file, corrupt content, and
+extension-spoofed-format rejection; no modification of the source file;
+and a genuine in-memory copy). All 41 tests pass.
 
-**What is not yet implemented:** central logo upload and placement
-(`logo_service.py` is a docstring-only placeholder); PNG/SVG export
-(`export_service.py` is a docstring-only placeholder, no save dialog
-exists); any preferences storage; automated QR decoding tests; any
-packaging; any CI configuration.
+**What is not yet implemented:** logo placement/compositing onto the QR
+code (the logo is validated and stored, but not yet drawn — `QRG-010`);
+PNG/SVG export (`export_service.py` is a docstring-only placeholder, no
+save dialog exists); any preferences storage; automated QR decoding
+tests; any packaging; any CI configuration.
 
-**Current milestone:** Milestone 2 — Colour controls — complete
-(`QRG-005` through `QRG-008`). Milestone 3 — Central image — next.
+**Current milestone:** Milestone 3 — Central image — under way
+(`QRG-009` complete).
 
-**Recommended next backlog item:** `QRG-009` — Add logo file selection and
-validation (see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-010` — Implement safe central
+logo placement (see `BACKLOG.md`).
 
 ## Open decisions
 

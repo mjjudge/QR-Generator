@@ -33,20 +33,21 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 2 — Colour controls — complete
-  (`QRG-005` through `QRG-008`). Milestone 3 — Central image — next.
-* **Recommended next item:** `QRG-009` — Add logo file selection and
-  validation.
+* **Current milestone:** Milestone 3 — Central image — under way
+  (`QRG-009` complete).
+* **Recommended next item:** `QRG-010` — Implement safe central logo
+  placement (composite the already-validated logo onto the QR code, with
+  finder-pattern protection and forced error-correction level H).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (33 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (41 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
-  validation and live preview refresh (independently, and together), and
-  contrast/polarity warnings (low-contrast pair, and light-on-dark
-  polarity); and direct pixel checks confirming chosen colours render
-  correctly in the generated image.
+  validation and live preview refresh, contrast/polarity warnings, and
+  logo selection/rejection/removal; and direct pixel/byte-level checks
+  confirming chosen colours render correctly and that logo files are
+  never modified on disk.
 
 ---
 
@@ -297,18 +298,41 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-009 — Add logo file selection and validation
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Let the user choose, validate, and clear a central image.
 * **Acceptance criteria:**
-  * Accept PNG, JPEG, JPG (FR-028).
+  * Accept PNG, JPEG, JPG (FR-028). ✅ `services/logo_service.load_logo`
+    accepts any file Pillow decodes as PNG or JPEG (both `.jpg` and
+    `.jpeg` decode as Pillow format "JPEG").
   * Reject unsupported/corrupt files cleanly, without relying on file
-    extension alone (FR-029, NFR-008).
-  * Support removing/replacing the selected logo.
-  * Never modify the user's source file (FR-040).
-* **Dependencies:** None (independent of colour work).
-* **Validation requirements:** Unit tests with valid, corrupt and
-  wrong-extension sample files; `logo_service.py` gains real
-  implementation and tests.
+    extension alone (FR-029, NFR-008). ✅ Validation checks the actual
+    decoded `image.format`, not the filename — a genuine BMP saved with a
+    misleading `.png` extension is correctly rejected
+    (`test_rejects_unsupported_format_even_with_a_png_extension`); a
+    corrupt/non-image file raises a clear `LogoValidationError` rather
+    than propagating a raw Pillow exception.
+  * Support removing/replacing the selected logo. ✅ "Choose image…" and
+    "Remove" buttons in `MainWindow`; choosing a new file after a
+    previous failed/successful selection is a plain replace.
+  * Never modify the user's source file (FR-040). ✅
+    `test_does_not_modify_the_source_file` compares the file's raw bytes
+    before/after loading; `load_logo` returns an independent in-memory
+    `.copy()`, confirmed by
+    `test_returns_an_independent_in_memory_copy` (the source file is
+    deleted after loading, and the returned image is still usable).
+* **Validation:** `pytest -q` → 41 passed (8 new, in
+  `tests/test_logo_service.py`). `ruff check .` and `ruff format --check .`
+  → both clean. A scripted Tkinter smoke test exercised: a valid PNG
+  (accepted, filename/dimensions shown); a corrupt file (clear error,
+  previous valid logo state left untouched); a BMP disguised with a
+  `.png` extension (rejected by content); and Remove (clears state back
+  to "No logo selected").
+* **Known limitation:** Selecting a logo only validates and stores it —
+  it is **not** yet drawn on the QR preview or included in generation.
+  The status message says so explicitly
+  ("Placing it on the QR code is not yet supported.") to avoid implying
+  more than this item delivers. Placement is `QRG-010`.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
 
 ### QRG-010 — Implement safe central logo placement
 
