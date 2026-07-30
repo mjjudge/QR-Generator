@@ -68,9 +68,17 @@ chronological diary — see "Editing rules" at the end.
 * The colour model (`models/colour.py`'s `Colour` dataclass, plus
   `services/colour_service.py`'s HEX/RGB/CMYK parsing and conversion) is
   the single sRGB source of truth that keeps colour entry methods
-  synchronised (FR-020). `QRSettings`/`qr_service.py` still take plain HEX
-  strings directly and are unaffected by this — the colour model is not
-  yet wired into the UI (see `BACKLOG.md` `QRG-006`/`QRG-007`).
+  synchronised (FR-020).
+* The graphical colour picker uses the Python standard library's
+  `tkinter.colorchooser` — no additional dependency was needed for FR-016.
+* `ui/colour_control.py`'s `ColourControl` is a reusable widget (palette +
+  picker + HEX + RGB + CMYK, all synchronised) used for the foreground
+  colour (`QRG-006`) and intended to be reused as-is for the background
+  colour (`QRG-007`).
+* Changing a colour while a valid URL is already entered live-refreshes
+  the preview (FR-042); an invalid/empty URL is silently ignored by that
+  live-refresh path rather than surfacing a validation error, so adjusting
+  colours before typing a URL does not spam error messages.
 
 ## QR safety rules
 
@@ -170,8 +178,13 @@ application, as of this document's creation:
 * `qr_service.generate_qr_image` already accepts arbitrary
   foreground/background colour overrides via `QRSettings` and threads them
   correctly through to the rendered image (verified directly: a custom
-  colour pair produced the expected pixel colour) — there is simply no UI
-  control yet to set them.
+  colour pair produced the expected pixel colour).
+* The foreground colour is now user-controllable in the UI (palette,
+  picker, HEX, RGB, CMYK — see `QRG-006`), with a live preview refresh and
+  validation errors shown in the status label. Verified directly: setting
+  HEX to `FF0000` and generating produced a pure red pixel at the finder
+  pattern in the rendered image. The background colour is not yet
+  user-controllable (still fixed at white pending `QRG-007`).
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
@@ -182,20 +195,18 @@ Segno), and `tests/test_colour_service.py` (HEX/RGB/CMYK parsing and
 validation, and known-value HEX↔RGB↔CMYK round trips for black, white and
 pure red). All 26 tests pass.
 
-**What is not yet implemented:** colour palette/picker/RGB/CMYK **UI**
-controls (the underlying colour model exists and is tested, but nothing in
-`ui/main_window.py` exposes it yet — only default black/white reaches the
-user); contrast/colour-safety warnings; central logo upload and placement
-(`logo_service.py` is a docstring-only placeholder); PNG/SVG export
-(`export_service.py` is a docstring-only placeholder, no save dialog
-exists); any preferences storage; automated QR decoding tests; any
-packaging; any CI configuration.
+**What is not yet implemented:** background colour controls (still fixed
+white pending `QRG-007`); contrast/colour-safety warnings (`QRG-008`);
+central logo upload and placement (`logo_service.py` is a docstring-only
+placeholder); PNG/SVG export (`export_service.py` is a docstring-only
+placeholder, no save dialog exists); any preferences storage; automated QR
+decoding tests; any packaging; any CI configuration.
 
 **Current milestone:** Milestone 1 complete; Milestone 2 — Colour controls
-— under way (`QRG-005` complete).
+— under way (`QRG-005`, `QRG-006` complete).
 
-**Recommended next backlog item:** `QRG-006` — Add foreground colour
-controls (UI), then `QRG-007` and `QRG-008` (see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-007` — Add background colour
+controls (see `BACKLOG.md`).
 
 ## Open decisions
 

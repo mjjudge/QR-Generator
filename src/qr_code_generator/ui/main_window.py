@@ -11,13 +11,21 @@ from tkinter import ttk
 
 from PIL import ImageTk
 
+from qr_code_generator.models.colour import Colour
 from qr_code_generator.models.qr_settings import QRSettings
+from qr_code_generator.services.colour_service import (
+    DEFAULT_BACKGROUND_COLOUR,
+    DEFAULT_FOREGROUND_COLOUR,
+    PALETTE,
+    parse_hex,
+)
 from qr_code_generator.services.qr_service import generate_qr_image
 from qr_code_generator.services.validation_service import (
     URLValidationError,
     get_url_length_warning,
     validate_url,
 )
+from qr_code_generator.ui.colour_control import ColourControl
 
 WINDOW_TITLE = "QR Code Generator"
 WINDOW_SIZE = "480x600"
@@ -34,6 +42,7 @@ class MainWindow(ttk.Frame):
         master.minsize(*WINDOW_MIN_SIZE)
 
         self._qr_photo: ImageTk.PhotoImage | None = None
+        self._foreground_colour: Colour = parse_hex(DEFAULT_FOREGROUND_COLOUR)
 
         self._build_widgets()
         self.pack(fill=tk.BOTH, expand=True)
@@ -47,6 +56,16 @@ class MainWindow(ttk.Frame):
         url_entry.bind("<Return>", lambda _event: self._on_generate())
         url_entry.focus_set()
 
+        self._foreground_control = ColourControl(
+            self,
+            title="Foreground colour",
+            initial=self._foreground_colour,
+            palette=PALETTE,
+            on_change=self._on_foreground_changed,
+            on_error=self._show_error,
+        )
+        self._foreground_control.pack(fill=tk.X, pady=(0, 8))
+
         ttk.Button(self, text="Generate", command=self._on_generate).pack(anchor=tk.W, pady=(0, 12))
 
         preview_frame = ttk.Frame(self, borderwidth=1, relief=tk.SUNKEN)
@@ -59,15 +78,39 @@ class MainWindow(ttk.Frame):
             anchor=tk.W, fill=tk.X
         )
 
+    def _show_error(self, message: str) -> None:
+        self._status_var.set(message)
+
+    def _on_foreground_changed(self, colour: Colour) -> None:
+        self._foreground_colour = colour
+        self._refresh_preview_if_url_valid()
+
+    def _refresh_preview_if_url_valid(self) -> None:
+        """Re-render the preview after a setting change (FR-042), without
+        showing a validation error for a URL the user has not finished typing.
+        """
+        try:
+            url = validate_url(self._url_var.get())
+        except URLValidationError:
+            return
+        self._generate_and_show(url)
+
     def _on_generate(self) -> None:
         try:
             url = validate_url(self._url_var.get())
         except URLValidationError as error:
             self._status_var.set(str(error))
             return
+        self._generate_and_show(url)
 
+    def _generate_and_show(self, url: str) -> None:
+        settings = QRSettings(
+            url=url,
+            foreground_colour=self._foreground_colour.to_hex(),
+            background_colour=DEFAULT_BACKGROUND_COLOUR,
+        )
         try:
-            image = generate_qr_image(QRSettings(url=url))
+            image = generate_qr_image(settings)
         except Exception as error:  # noqa: BLE001 - surfaced to the user, not swallowed
             self._status_var.set(f"Could not generate QR code: {error}")
             return

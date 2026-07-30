@@ -7,8 +7,9 @@ one source of truth, not three independent fields.
 
 CMYK conversion uses a standard, uncalibrated formula. It is only
 approximate: it does not use an ICC colour profile (SPECIFICATION.md
-FR-022). Palette and graphical colour-picker UI controls are not yet
-implemented (see BACKLOG.md QRG-006/QRG-007).
+FR-022). Palette and graphical colour-picker UI controls exist for the
+foreground colour (BACKLOG.md QRG-006); background colour controls are not
+yet wired up (QRG-007).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from qr_code_generator.models.qr_settings import (
 __all__ = [
     "DEFAULT_FOREGROUND_COLOUR",
     "DEFAULT_BACKGROUND_COLOUR",
+    "PALETTE",
     "ColourValidationError",
     "parse_hex",
     "parse_rgb",
@@ -32,6 +34,17 @@ __all__ = [
 ]
 
 _HEX_PATTERN = re.compile(r"^#?[0-9A-Fa-f]{6}$")
+
+#: A small predefined palette offered alongside the picker/HEX/RGB/CMYK
+#: entry methods (SPECIFICATION.md FR-015).
+PALETTE: list[Colour] = [
+    Colour(0, 0, 0),
+    Colour(255, 255, 255),
+    Colour(200, 16, 46),
+    Colour(0, 106, 78),
+    Colour(0, 61, 165),
+    Colour(255, 184, 28),
+]
 
 
 class ColourValidationError(ValueError):

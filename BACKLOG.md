@@ -34,17 +34,18 @@ this file is out of date — treat that as a defect to fix immediately.
 ## Current state (evidence-based, as of this document's creation)
 
 * **Current milestone:** Milestone 1 complete; Milestone 2 — Colour
-  controls — under way (`QRG-005` complete, `QRG-006`/`QRG-007` next).
-* **Recommended next item:** `QRG-006` — Add foreground colour controls
-  (UI), followed by `QRG-007` (background) and `QRG-008` (contrast
-  validation).
+  controls — under way (`QRG-005`, `QRG-006` complete).
+* **Recommended next item:** `QRG-007` — Add background colour controls
+  (reuse `ColourControl`, wired to `QRSettings.background_colour`),
+  followed by `QRG-008` (contrast validation).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
   `THIRD_PARTY_NOTICES.md`; `pytest -q` (26 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
-  and long-URL input; and a direct check that custom foreground/background
-  colours are correctly threaded through to the rendered image.
+  and long-URL input, plus foreground colour synchronisation, validation
+  and live preview refresh; and a direct pixel check confirming a chosen
+  foreground colour renders in the generated image.
 
 ---
 
@@ -191,17 +192,42 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-006 — Add foreground colour controls
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** UI controls for foreground colour selection.
 * **Acceptance criteria:**
   * Palette, graphical picker, HEX, RGB and CMYK entry, all synchronised
-    (FR-015–FR-020).
-  * Selected colour feeds into `QRSettings.foreground_colour` and is
-    reflected in the preview.
-  * Invalid values show a validation error (FR-023).
-* **Dependencies:** `QRG-005`.
-* **Validation requirements:** Manual UI testing; unit tests for any
-  non-trivial logic extracted into services.
+    (FR-015–FR-020). ✅ `ui/colour_control.py`'s `ColourControl` widget:
+    a six-swatch palette, a native Tk colour picker (`tkinter.colorchooser`,
+    standard library — no new dependency), and HEX/RGB/CMYK entry fields.
+    Every entry method constructs a `Colour` via `colour_service`, and
+    `set_colour()` re-populates every other representation from it, so they
+    cannot drift apart.
+  * Selected colour feeds into `QRSettings.foreground_colour` (via
+    `MainWindow._generate_and_show`) and is reflected in the preview,
+    including a **live refresh**: changing colour while a valid URL is
+    already entered regenerates the preview immediately (FR-042), without
+    showing a validation error if the URL field is currently empty/invalid
+    (`MainWindow._refresh_preview_if_url_valid`).
+  * Invalid values show a validation error (FR-023) via the shared status
+    label, and the colour is left unchanged (the user's typed text is not
+    silently discarded or replaced). ✅
+* **Validation:** `pytest -q` → 26 passed (unchanged — no new pure-logic
+  tests were needed as `colour_service` was already fully tested in
+  `QRG-005`; the new code here is UI wiring). `ruff check .` and
+  `ruff format --check .` → both clean. A scripted Tkinter smoke test
+  verified: HEX entry synchronises RGB/CMYK fields correctly; RGB entry
+  synchronises HEX; invalid HEX/RGB/CMYK each produce a specific error
+  message and leave the colour unchanged; a direct pixel check confirmed a
+  chosen colour (red) actually renders in the generated QR image, not only
+  in widget state.
+* **Known limitation:** As with `QRG-002`/`QRG-003`, UI wiring is validated
+  by scripted smoke test rather than an automated `pytest` UI test, since
+  `pytest` should remain runnable in headless environments that lack a
+  display — this mirrors the precedent set for the original vertical
+  slice, not a new gap specific to this item.
+* **Documentation impact:** `SPECIFICATION.md` FR-015–FR-020, FR-023 and
+  FR-042 move from "target" to "implemented (foreground only)" — see
+  `MEMORY.md`.
 
 ### QRG-007 — Add background colour controls
 
