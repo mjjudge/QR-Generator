@@ -33,22 +33,25 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 4 — Export — under way (`QRG-012`
-  complete).
-* **Recommended next item:** `QRG-013` — Implement SVG export.
+* **Current milestone:** Milestone 4 — Export — under way (`QRG-012`,
+  `QRG-013` complete).
+* **Recommended next item:** `QRG-014` — Add export settings and filename
+  handling (default/safe filenames; currently both PNG and SVG export
+  always suggest the fixed name `qrcode.png`/`qrcode.svg`).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (63 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (70 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
   validation and live preview refresh, contrast/polarity warnings, logo
   selection/rejection/removal, logo placement and size adjustment with a
-  live decoding check, and PNG export (no-URL validation, a plain export,
-  a logo-bearing Large export, and dialog cancellation); and direct
-  pixel/byte-level checks confirming chosen colours render correctly,
-  logo files are never modified on disk, finder-pattern pixels are never
-  touched, and exported files reopen and decode to the exact URL.
+  live decoding check, and both PNG and SVG export (no-URL validation, a
+  plain export, a logo-bearing export, and dialog cancellation); and
+  direct pixel/byte-level/XML-structure checks confirming chosen colours
+  render correctly, logo files are never modified on disk, finder-pattern
+  pixels are never touched, exported PNGs reopen and decode to the exact
+  URL, and exported SVGs are well-formed with untouched vector modules.
 
 ---
 
@@ -522,16 +525,59 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-013 — Implement SVG export
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Save the generated QR code as SVG.
 * **Acceptance criteria:**
-  * Vector QR modules at the selected colours (FR-046).
-  * Quiet zone preserved (FR-047).
-  * Self-contained embedded logo where technically practical (FR-050).
-  * Save dialog; export-level tests.
-* **Dependencies:** As `QRG-012`.
-* **Validation requirements:** Automated export tests confirming the SVG
-  parses and, where practical, decodes.
+  * Vector QR modules at the selected colours (FR-046). ✅
+    `export_service.render_svg_for_export` delegates directly to Segno's
+    own SVG writer for the QR modules — no size presets are offered for
+    SVG, since vector output scales losslessly to any size
+    (`SPECIFICATION.md` §10), unlike PNG.
+  * Quiet zone preserved (FR-047). ✅ Unchanged — the same
+    `QUIET_ZONE_MODULES` border passed to Segno.
+  * Self-contained embedded logo where technically practical (FR-050). ✅
+    When a logo is present, it is embedded as a base64-encoded PNG
+    `<image>` element behind a solid `<rect>` clearance panel (using the
+    QR's own background colour), inserted just before `</svg>` — no
+    external file references. The QR modules themselves remain pure
+    vector; only the small logo area is raster, which is the "where
+    technically practical" compromise FR-050 anticipates.
+  * Save dialog; export-level tests. ✅ An "Export SVG…" button, using
+    the same URL-validation-then-native-dialog pattern as PNG export
+    (`QRG-012`).
+* **Refactor enabling this cleanly:** extracted `logo_service`'s
+  finder-pattern-safety and sizing maths into module-count-based
+  functions (`max_safe_logo_ratio_for_modules`,
+  `effective_logo_ratio_for_modules`) and a shared
+  `fit_logo_and_panel(canvas_size, effective_ratio, logo)` geometry
+  helper, so the SVG path computes the *exact* same panel/logo placement
+  as the PNG path (`apply_logo`) without needing a rendered raster QR
+  image first. All 63 pre-existing tests still passed unchanged after
+  this refactor, confirming it altered no behaviour.
+* **Validation:** `pytest -q` → 70 passed (7 new): the no-logo SVG is
+  byte-identical to calling Segno directly (proving nothing is altered
+  when there's no logo); the logo-bearing SVG is well-formed XML
+  (`xml.etree.ElementTree`) with the expected `<g>`/`<rect>`/`<image>`
+  structure; the `<g>` (vector QR modules) is byte-identical with and
+  without a logo present (proving the injection never touches the
+  modules); the panel's `fill` matches the exact configured background
+  colour; the embedded `<image>`'s position/size and decoded PNG bytes
+  match what `fit_logo_and_panel` computes directly; and `save_svg`
+  writes the exact text and raises `ExportError` for an unwritable path.
+  `ruff check .` and `ruff format --check .` → both clean. A scripted
+  smoke test exercised no-URL validation, a plain export, a logo-bearing
+  export, and dialog cancellation, inspecting the actual written file's
+  XML structure each time.
+* **Known limitation — not automated:** unlike PNG, the exported SVG is
+  not verified by actually *decoding* it as a QR code, because that would
+  require rasterising the SVG first (e.g. via a browser or a rendering
+  library), which was judged disproportionate to add as a new dependency
+  for this. Confidence instead comes from: Segno's SVG output being used
+  completely unmodified (proven byte-identical in the no-logo case), and
+  the logo-embedding geometry being proven identical to the
+  already-decode-tested PNG path. Physical/visual verification of SVG
+  output remains part of `QRG-016`.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
 
 ### QRG-014 — Add export settings and filename handling
 

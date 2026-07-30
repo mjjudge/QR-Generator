@@ -82,33 +82,49 @@ def _module_count(qr_image: Image.Image, scale: int) -> int:
     return total_modules - 2 * QUIET_ZONE_MODULES
 
 
-def max_safe_logo_ratio(qr_image: Image.Image, scale: int = DEFAULT_SCALE) -> float:
+def max_safe_logo_ratio_for_modules(symbol_modules: int, border: int = QUIET_ZONE_MODULES) -> float:
     """The largest centred, square footprint (as a fraction of image width)
-    that is geometrically guaranteed not to overlap any finder pattern of
-    this specific QR code.
+    that is geometrically guaranteed not to overlap any finder pattern, for
+    a QR symbol of `symbol_modules` modules per side.
 
     The three finder patterns sit only in the three corners, each
     `_FINDER_PATTERN_MODULES` (7) modules square. A centred square
     footprint of ``S`` modules avoids all three exactly when
-    ``S <= module_count - 2 * _FINDER_PATTERN_MODULES + 1`` (one module of
-    margin included); see BACKLOG.md QRG-010 for the full derivation. This
-    holds for every QR version, since finder patterns are always 7x7
+    ``S <= symbol_modules - 2 * _FINDER_PATTERN_MODULES + 1`` (one module
+    of margin included); see BACKLOG.md QRG-010 for the full derivation.
+    This holds for every QR version, since finder patterns are always 7x7
     modules regardless of symbol size -- only the safe fraction changes.
+
+    Takes a plain module count rather than a rendered image so it can be
+    shared by both the PNG (`apply_logo`) and SVG (`export_service`) paths
+    without either needing to rasterise anything first.
     """
-    module_count = _module_count(qr_image, scale)
-    total_modules = module_count + 2 * QUIET_ZONE_MODULES
-    safe_span_modules = max(module_count - 2 * _FINDER_PATTERN_MODULES + 1, 0)
+    total_modules = symbol_modules + 2 * border
+    safe_span_modules = max(symbol_modules - 2 * _FINDER_PATTERN_MODULES + 1, 0)
     return safe_span_modules / total_modules
+
+
+def max_safe_logo_ratio(qr_image: Image.Image, scale: int = DEFAULT_SCALE) -> float:
+    """`max_safe_logo_ratio_for_modules`, for an already-rendered `qr_image`."""
+    return max_safe_logo_ratio_for_modules(_module_count(qr_image, scale))
+
+
+def effective_logo_ratio_for_modules(symbol_modules: int, requested_ratio: float) -> float:
+    """The footprint ratio actually used for a symbol of `symbol_modules`
+    modules per side, after applying the absolute maximum and the
+    finder-pattern-safe maximum -- whichever of the three is smallest
+    (FR-034, FR-036).
+    """
+    return min(
+        requested_ratio, MAX_LOGO_SIZE_RATIO, max_safe_logo_ratio_for_modules(symbol_modules)
+    )
 
 
 def effective_logo_ratio(
     qr_image: Image.Image, requested_ratio: float, scale: int = DEFAULT_SCALE
 ) -> float:
-    """The footprint ratio actually used for `qr_image`, after applying the
-    absolute maximum and this code's own finder-pattern-safe maximum --
-    whichever of the three is smallest (FR-034, FR-036).
-    """
-    return min(requested_ratio, MAX_LOGO_SIZE_RATIO, max_safe_logo_ratio(qr_image, scale))
+    """`effective_logo_ratio_for_modules`, for an already-rendered `qr_image`."""
+    return effective_logo_ratio_for_modules(_module_count(qr_image, scale), requested_ratio)
 
 
 def get_logo_size_warning(effective_ratio: float, requested_ratio: float) -> str | None:
@@ -134,6 +150,28 @@ def get_logo_size_warning(effective_ratio: float, requested_ratio: float) -> str
     return None
 
 
+def fit_logo_and_panel(
+    canvas_size: int, effective_ratio: float, logo: Image.Image
+) -> tuple[int, tuple[int, int], Image.Image, tuple[int, int]]:
+    """Shared placement geometry for a `canvas_size`-square QR image,
+    reused identically by the PNG (`apply_logo`) and SVG
+    (`export_service.render_svg_for_export`) export paths so both produce
+    visually consistent results for the same settings.
+
+    Returns ``(panel_size, panel_position, fitted_logo, logo_position)``,
+    all in the same pixel/unit space as `canvas_size`.
+    """
+    panel_size = round(canvas_size * effective_ratio)
+    logo_box_size = max(round(panel_size * (1 - 2 * _PANEL_PADDING_FRACTION)), 1)
+    fitted_logo = ImageOps.contain(logo.convert("RGBA"), (logo_box_size, logo_box_size))
+    panel_position = ((canvas_size - panel_size) // 2, (canvas_size - panel_size) // 2)
+    logo_position = (
+        (canvas_size - fitted_logo.width) // 2,
+        (canvas_size - fitted_logo.height) // 2,
+    )
+    return panel_size, panel_position, fitted_logo, logo_position
+
+
 def apply_logo(
     qr_image: Image.Image,
     logo: Image.Image,
@@ -150,22 +188,14 @@ def apply_logo(
     new image is returned (FR-040).
     """
     effective_ratio = effective_logo_ratio(qr_image, size_ratio, scale)
-    panel_size = round(qr_image.width * effective_ratio)
-    logo_box_size = max(round(panel_size * (1 - 2 * _PANEL_PADDING_FRACTION)), 1)
-
-    fitted_logo = ImageOps.contain(logo.convert("RGBA"), (logo_box_size, logo_box_size))
+    panel_size, panel_position, fitted_logo, logo_position = fit_logo_and_panel(
+        qr_image.width, effective_ratio, logo
+    )
 
     result = qr_image.convert("RGB").copy()
     background_colour = result.getpixel((0, 0))
     panel = Image.new("RGB", (panel_size, panel_size), background_colour)
-
-    panel_position = ((result.width - panel_size) // 2, (result.height - panel_size) // 2)
     result.paste(panel, panel_position)
-
-    logo_position = (
-        (result.width - fitted_logo.width) // 2,
-        (result.height - fitted_logo.height) // 2,
-    )
     result.paste(fitted_logo, logo_position, mask=fitted_logo)
 
     return result

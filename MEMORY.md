@@ -149,6 +149,20 @@ chronological diary — see "Editing rules" at the end.
   there is no custom overwrite-confirmation code to test, and this
   reliance has not been manually verified interactively on a real Ubuntu
   desktop in this environment (see "Open decisions").
+* SVG export (`QRG-013`) has **no size presets** — vector output scales
+  losslessly, so there is no "target resolution" the way PNG needs one.
+  The QR modules are Segno's own SVG output, used completely unmodified
+  when no logo is present (proven byte-identical in tests). When a logo
+  is present, it is embedded as a base64 PNG `<image>` behind a `<rect>`
+  clearance panel, inserted just before `</svg>` — the vector modules
+  themselves are never touched (also proven directly in tests). This
+  reuses the exact same placement geometry as PNG export via
+  `logo_service.fit_logo_and_panel`, factored out specifically so both
+  formats place the logo identically for the same settings.
+  `logo_service`'s finder-pattern-safety maths (`max_safe_logo_ratio`,
+  `effective_logo_ratio`) were refactored into module-count-based
+  variants (`..._for_modules`) for the same reason — the SVG path never
+  needs to rasterise a QR image just to learn its module count.
 
 ## Repository governance
 
@@ -274,8 +288,13 @@ application, as of this document's creation:
   entered shows a validation error without opening a dialog; a plain
   export and a logo-bearing Large export both reopen as valid PNGs and
   decode (via `zxingcpp`) to the exact source URL; cancelling the dialog
-  does nothing. **Not yet implemented:** SVG export (`QRG-013`); sensible
-  default/safe filenames beyond the fixed `qrcode.png` (`QRG-014`).
+  does nothing.
+* SVG export is implemented (`QRG-013`): an "Export SVG…" button beside
+  the PNG one, same validation-then-native-dialog pattern, no size
+  dropdown (not applicable to vector output). Verified directly: exported
+  files are well-formed XML with the expected structure, both with and
+  without a logo present. **Not yet implemented:** sensible default/safe
+  filenames beyond the fixed `qrcode.png`/`qrcode.svg` (`QRG-014`).
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
@@ -295,17 +314,16 @@ finder-pattern pixels left untouched; and logo-bearing codes decoding to
 the exact URL for both the shortest and a typical URL). All 48 tests
 pass.
 
-**What is not yet implemented:** SVG export (`QRG-013`); sensible
-default/safe filename handling beyond the fixed `qrcode.png`
-(`QRG-014`); any preferences storage; a dedicated decoding test for a
-plain/coloured (non-logo) QR code (remaining `QRG-015` scope); any
-packaging; any CI configuration.
+**What is not yet implemented:** sensible default/safe filename handling
+beyond the fixed `qrcode.png`/`qrcode.svg` (`QRG-014`); any preferences
+storage; a dedicated decoding test for a plain/coloured (non-logo) QR
+code (remaining `QRG-015` scope); any packaging; any CI configuration.
 
-**Current milestone:** Milestone 4 — Export — under way (`QRG-012`
-complete).
+**Current milestone:** Milestone 4 — Export — under way (`QRG-012`,
+`QRG-013` complete).
 
-**Recommended next backlog item:** `QRG-013` — Implement SVG export (see
-`BACKLOG.md`).
+**Recommended next backlog item:** `QRG-014` — Add export settings and
+filename handling (see `BACKLOG.md`).
 
 ## Open decisions
 
@@ -331,6 +349,12 @@ Genuinely unresolved, durable questions:
   desktop — reasoned from documented GTK/Tk behaviour and exercised in
   automated tests only via monkeypatching (the dialog itself cannot be
   driven headlessly), so it has not been manually verified interactively.
+* Whether to ever add an SVG-rasterising dependency (e.g. `cairosvg`) so
+  exported SVGs can be decode-tested the same way PNGs are, or whether
+  the current structural proof (Segno's output used byte-identically;
+  the logo geometry proven identical to the already-decode-tested PNG
+  path) is considered sufficient indefinitely. Not added yet — judged
+  disproportionate for this task (`QRG-013`).
 * The specific Ubuntu packaging format/tooling detail beyond "PyInstaller is
   the intended default" (e.g. plain PyInstaller bundle vs `.deb` vs
   AppImage).

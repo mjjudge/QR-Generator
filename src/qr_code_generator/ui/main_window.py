@@ -26,7 +26,9 @@ from qr_code_generator.services.export_service import (
     PNG_SIZE_PRESETS,
     ExportError,
     render_png_for_export,
+    render_svg_for_export,
     save_png,
+    save_svg,
 )
 from qr_code_generator.services.logo_service import (
     DEFAULT_LOGO_SIZE_RATIO,
@@ -139,7 +141,10 @@ class MainWindow(ttk.Frame):
             state="readonly",
             width=16,
         ).pack(side=tk.LEFT, padx=(4, 12))
-        ttk.Button(export_frame, text="Export PNG…", command=self._on_export_png).pack(side=tk.LEFT)
+        ttk.Button(export_frame, text="Export PNG…", command=self._on_export_png).pack(
+            side=tk.LEFT, padx=(0, 4)
+        )
+        ttk.Button(export_frame, text="Export SVG…", command=self._on_export_svg).pack(side=tk.LEFT)
 
         preview_frame = ttk.Frame(self, borderwidth=1, relief=tk.SUNKEN)
         preview_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
@@ -253,6 +258,35 @@ class MainWindow(ttk.Frame):
             return
 
         self._status_var.set(f"Exported PNG to {Path(path).name}.")
+
+    def _on_export_svg(self) -> None:
+        try:
+            url = validate_url(self._url_var.get())
+        except URLValidationError as error:
+            self._status_var.set(str(error))
+            return
+
+        path = filedialog.asksaveasfilename(
+            title="Export as SVG",
+            defaultextension=".svg",
+            filetypes=[("SVG image", "*.svg")],
+            initialfile="qrcode.svg",
+        )
+        if not path:
+            return
+
+        try:
+            svg_text = render_svg_for_export(
+                self._current_settings(url),
+                logo=self._logo_image,
+                logo_size_ratio=self._logo_size_ratio,
+            )
+            save_svg(svg_text, path)
+        except ExportError as error:
+            self._status_var.set(f"Could not export SVG: {error}")
+            return
+
+        self._status_var.set(f"Exported SVG to {Path(path).name}.")
 
     def _generate_and_show(self, url: str) -> None:
         settings = self._current_settings(url)
