@@ -120,6 +120,10 @@ chronological diary — see "Editing rules" at the end.
   print-and-scan testing (Android, iPhone, printed leaflet sizes) is
   additionally required before any production-oriented release — automated
   decoding does not substitute for it.
+* Decoding coverage (`QRG-015`) now spans all three shapes generated
+  codes can take: plain black-on-white, custom-coloured, and
+  logo-bearing (the last one added earlier, in `QRG-010`) — each
+  asserting the decoded text matches the source URL exactly.
 * Finder-pattern protection for a central logo is enforced geometrically,
   not by a fixed guess: `logo_service.max_safe_logo_ratio` derives, from
   the QR image's own module count, the largest centred square guaranteed
@@ -328,16 +332,26 @@ finder-pattern pixels left untouched; and logo-bearing codes decoding to
 the exact URL for both the shortest and a typical URL). All 48 tests
 pass.
 
+* Real-world validation, outside the automated test suite: a genuine
+  QR code was generated on request (Rotary Royal Blue `#17458F` on
+  white, with a transparent-PNG club logo), exported as both PNG and
+  SVG, and the saved PNG file was decoded and confirmed to match the
+  requested URL exactly — first at the 18% default logo size, then
+  again at 22% after a size increase. This is the first time the
+  application has been used for its actual intended purpose rather than
+  synthetic test data.
+
 **What is not yet implemented:** any preferences storage (including a
 remembered last export directory — deliberately deferred, not an
-oversight); a dedicated decoding test for a plain/coloured (non-logo) QR
-code (remaining `QRG-015` scope); any packaging; any CI configuration.
+oversight); any packaging; any CI configuration.
 
-**Current milestone:** Milestone 4 — Export — complete (`QRG-012`
-through `QRG-014`). Milestone 5 — Scannability and quality — next.
+**Current milestone:** Milestone 5 — Scannability and quality — under
+way (`QRG-015` complete).
 
-**Recommended next backlog item:** `QRG-015` — Add automated QR decoding
-tests (remaining scope only — see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-016` — Establish physical scan
+test matrix, but this needs real hardware and a human, not an agent (see
+`BACKLOG.md`). `QRG-017` or `QRG-018` are the next agent-completable
+items.
 
 ## Open decisions
 

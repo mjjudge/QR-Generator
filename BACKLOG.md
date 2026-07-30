@@ -33,14 +33,17 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 4 — Export — complete (`QRG-012`
-  through `QRG-014`). Milestone 5 — Scannability and quality — next.
-* **Recommended next item:** `QRG-015` — Add automated QR decoding tests
-  (already partially done — see that item's own entry — remaining scope
-  is a dedicated plain/coloured, non-logo decoding test for symmetry).
+* **Current milestone:** Milestone 5 — Scannability and quality — under
+  way (`QRG-015` complete).
+* **Recommended next item:** `QRG-016` — Establish physical scan test
+  matrix. This needs real hardware (an Android phone, an iPhone, a
+  printer) and a human to run it — it cannot be completed by an agent.
+  `QRG-017` (accessibility/keyboard) or `QRG-018` (error-handling
+  hardening) are the next agent-completable items if `QRG-016` is set
+  aside for now.
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (79 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (81 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
@@ -48,11 +51,15 @@ this file is out of date — treat that as a defect to fix immediately.
   selection/rejection/removal, logo placement and size adjustment with a
   live decoding check, both PNG and SVG export (no-URL validation, a
   plain export, a logo-bearing export, and dialog cancellation), and
-  distinct default filenames suggested for distinct URLs; and direct
+  distinct default filenames suggested for distinct URLs; direct
   pixel/byte-level/XML-structure checks confirming chosen colours render
   correctly, logo files are never modified on disk, finder-pattern pixels
   are never touched, exported PNGs reopen and decode to the exact URL,
-  and exported SVGs are well-formed with untouched vector modules.
+  and exported SVGs are well-formed with untouched vector modules; and,
+  outside the test suite, a real user-requested QR code (Rotary blue on
+  white, with a transparent-PNG club logo) was generated through the
+  actual export pipeline and confirmed to decode correctly from the
+  saved file, at two different logo sizes.
 
 ---
 
@@ -628,30 +635,30 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-015 — Add automated QR decoding tests
 
-* **Status:** In Progress (partially pulled forward into `QRG-010`).
+* **Status:** Complete.
 * **Objective:** Confirm generated codes actually decode back to the exact
   source URL.
 * **Acceptance criteria:**
-  * ~~Decode a basic black-on-white QR code.~~ Covered indirectly by
-    `test_logo_bearing_qr_code_still_decodes_to_the_exact_url`'s
-    same-library decoding, though no dedicated no-logo/no-colour decoding
-    test exists yet as its own item.
-  * Decode a coloured QR code — **not yet covered**.
-  * ~~Decode QR codes bearing representative logos.~~ ✅ Done in `QRG-010`
+  * Decode a basic black-on-white QR code. ✅
+    `test_generated_qr_decodes_to_the_exact_url_black_on_white`
+    (`tests/test_qr_service.py`).
+  * Decode a coloured QR code. ✅
+    `test_generated_qr_decodes_to_the_exact_url_with_custom_colours`
+    (dark green on white).
+  * Decode QR codes bearing representative logos. ✅ Done in `QRG-010`
     (`tests/test_logo_service.py`), for both a very short and a more
     typical URL.
-  * ~~Assert the decoded text exactly matches the source URL.~~ ✅ Done
-    for the logo-bearing case.
-  * ~~Any decoding dependency introduced for this purpose is a
-    development-only dependency.~~ ✅ `zxing-cpp`, added as a `dev` extra
+  * Assert the decoded text exactly matches the source URL. ✅ Done for
+    all three cases above (plain, coloured, logo-bearing).
+  * Any decoding dependency introduced for this purpose is a
+    development-only dependency. ✅ `zxing-cpp`, added as a `dev` extra
     only (see `MEMORY.md`).
-* **Dependencies:** `QRG-006`–`QRG-010` (done); decoding library choice
-  (resolved: `zxing-cpp`, see `MEMORY.md`).
-* **Validation requirements:** Remaining: a dedicated test decoding a
-  plain black-on-white code and a coloured (non-logo) code, for
-  completeness/symmetry with the logo case already covered.
-* **Documentation impact:** None further until the remaining coverage is
-  added.
+* **Validation:** `pytest -q` → 81 passed (2 new). `ruff check .` and
+  `ruff format --check .` → both clean.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`. This
+  completes the automated-decoding acceptance criteria for Milestone 5;
+  physical print-and-scan validation remains separate, manual work
+  (`QRG-016`).
 
 ### QRG-016 — Establish physical scan test matrix
 
