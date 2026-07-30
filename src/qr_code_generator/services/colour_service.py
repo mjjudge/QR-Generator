@@ -7,9 +7,14 @@ one source of truth, not three independent fields.
 
 CMYK conversion uses a standard, uncalibrated formula. It is only
 approximate: it does not use an ICC colour profile (SPECIFICATION.md
-FR-022). Palette and graphical colour-picker UI controls exist for the
-foreground colour (BACKLOG.md QRG-006); background colour controls are not
-yet wired up (QRG-007).
+FR-022). Palette and graphical colour-picker UI controls exist for both
+the foreground and background colours (BACKLOG.md QRG-006, QRG-007).
+
+Colours here are always fully opaque (the ``Colour`` type has no alpha
+channel, and no UI offers a transparent background). This is a deliberate,
+conservative reading of FR-027: rather than support a transparent
+background that could silently fail to scan against an arbitrary print or
+display background, transparency is simply not offered in this release.
 """
 
 from __future__ import annotations
@@ -26,11 +31,15 @@ __all__ = [
     "DEFAULT_FOREGROUND_COLOUR",
     "DEFAULT_BACKGROUND_COLOUR",
     "PALETTE",
+    "CONTRAST_WARNING_THRESHOLD",
     "ColourValidationError",
     "parse_hex",
     "parse_rgb",
     "parse_cmyk",
     "to_cmyk",
+    "relative_luminance",
+    "contrast_ratio",
+    "get_contrast_warning",
 ]
 
 _HEX_PATTERN = re.compile(r"^#?[0-9A-Fa-f]{6}$")
@@ -95,3 +104,54 @@ def to_cmyk(colour: Colour) -> tuple[float, float, float, float]:
     m = (1 - g - k) / (1 - k)
     y = (1 - b - k) / (1 - k)
     return (round(c * 100, 1), round(m * 100, 1), round(y * 100, 1), round(k * 100, 1))
+
+
+#: Below this contrast ratio, a warning is shown (SPECIFICATION.md FR-024).
+#: This is the WCAG 2.x "AA" text-contrast minimum, adopted here as a
+#: documented, standard baseline in the absence of a QR-specific one.
+CONTRAST_WARNING_THRESHOLD = 4.5
+
+
+def relative_luminance(colour: Colour) -> float:
+    """Return the WCAG relative luminance of ``colour``, in the range 0.0-1.0."""
+
+    def linearise(channel: int) -> float:
+        srgb = channel / 255
+        if srgb <= 0.03928:
+            return srgb / 12.92
+        return ((srgb + 0.055) / 1.055) ** 2.4
+
+    r, g, b = linearise(colour.red), linearise(colour.green), linearise(colour.blue)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(first: Colour, second: Colour) -> float:
+    """Return the WCAG contrast ratio between two colours (1.0 to 21.0)."""
+    lighter = max(relative_luminance(first), relative_luminance(second))
+    darker = min(relative_luminance(first), relative_luminance(second))
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def get_contrast_warning(foreground: Colour, background: Colour) -> str | None:
+    """Return a warning if the colour pairing risks poor scan reliability.
+
+    Combines two independent checks: overall contrast (FR-024) and a
+    preference for a dark foreground on a light background (FR-025,
+    FR-026). Returns None if neither check finds a problem.
+    """
+    warnings: list[str] = []
+
+    ratio = contrast_ratio(foreground, background)
+    if ratio < CONTRAST_WARNING_THRESHOLD:
+        warnings.append(
+            f"Foreground/background contrast is low ({ratio:.1f}:1); aim for at least "
+            f"{CONTRAST_WARNING_THRESHOLD:.1f}:1 for reliable scanning."
+        )
+
+    if relative_luminance(foreground) > relative_luminance(background):
+        warnings.append(
+            "The foreground is lighter than the background. A dark foreground on a "
+            "light background is the safest, most reliably scannable combination."
+        )
+
+    return " ".join(warnings) if warnings else None

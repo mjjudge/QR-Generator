@@ -33,20 +33,20 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 2 — Colour controls — under way
-  (`QRG-005`, `QRG-006`, `QRG-007` complete).
-* **Recommended next item:** `QRG-008` — Add contrast and colour safety
-  validation (relative-luminance-based contrast warning, dark-on-light
-  preference, transparency policy).
+* **Current milestone:** Milestone 2 — Colour controls — complete
+  (`QRG-005` through `QRG-008`). Milestone 3 — Central image — next.
+* **Recommended next item:** `QRG-009` — Add logo file selection and
+  validation.
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (26 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (33 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
-  validation and live preview refresh (independently, and together); and
-  direct pixel checks confirming both chosen colours render correctly in
-  the generated image.
+  validation and live preview refresh (independently, and together), and
+  contrast/polarity warnings (low-contrast pair, and light-on-dark
+  polarity); and direct pixel checks confirming chosen colours render
+  correctly in the generated image.
 
 ---
 
@@ -255,19 +255,41 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-008 — Add contrast and colour safety validation
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Warn when foreground/background contrast is likely to harm
   scan reliability.
 * **Acceptance criteria:**
-  * A documented contrast calculation (for example, relative luminance
-    difference) (FR-024, NFR requirement for documented method).
-  * Dark-on-light preferred as the safe default; deviating combinations are
-    flagged (FR-025, FR-026).
+  * A documented contrast calculation (FR-024). ✅
+    `colour_service.relative_luminance`/`contrast_ratio` implement the
+    standard WCAG relative-luminance formula; `CONTRAST_WARNING_THRESHOLD
+    = 4.5` (the WCAG "AA" text minimum, adopted as a documented baseline
+    in the absence of a QR-specific standard — see `SPECIFICATION.md`
+    FR-024).
+  * Dark-on-light preferred as the safe default; deviating combinations
+    are flagged (FR-025, FR-026). ✅ `get_contrast_warning` independently
+    checks contrast ratio and foreground/background luminance ordering,
+    warning if the foreground is lighter than the background even when
+    contrast is otherwise acceptable (e.g. white-on-black).
   * A defined, conservative policy for transparent backgrounds (FR-027).
-  * Unit tests for the contrast calculation and threshold behaviour.
-* **Dependencies:** `QRG-005`, `QRG-006`, `QRG-007`.
-* **Validation requirements:** Unit tests; manual check that a known
-  low-contrast pair (e.g. light grey on white) triggers a warning.
+    ✅ `Colour` has no alpha channel and no UI offers a transparent
+    background — transparency is not offered at all in this release,
+    which conservatively avoids the risk FR-027 describes rather than
+    attempting to manage it.
+  * Unit tests for the contrast calculation and threshold behaviour. ✅
+    7 new tests in `tests/test_colour_service.py`: known luminance values
+    for black/white, the standard 21:1 black/white contrast ratio,
+    order-independence, no warning for black-on-white, a warning for a
+    low-contrast pair, and a warning for light-on-dark polarity even
+    though its contrast ratio passes.
+* **Validation:** `pytest -q` → 33 passed (7 new). `ruff check .` and
+  `ruff format --check .` → both clean. A scripted Tkinter smoke test
+  confirmed: default black/white shows no warning; light grey (#DCDCDC)
+  foreground on white background shows the low-contrast warning with the
+  actual computed ratio (1.4:1); white-on-black shows the polarity warning
+  without the low-contrast warning (since 21:1 comfortably passes).
+* **Documentation impact:** `SPECIFICATION.md` FR-024 updated with the
+  4.5:1 threshold; `colour_service.py`'s module docstring updated to state
+  the transparency policy explicitly.
 
 ---
 

@@ -17,6 +17,7 @@ from qr_code_generator.services.colour_service import (
     DEFAULT_BACKGROUND_COLOUR,
     DEFAULT_FOREGROUND_COLOUR,
     PALETTE,
+    get_contrast_warning,
     parse_hex,
 )
 from qr_code_generator.services.qr_service import generate_qr_image
@@ -133,8 +134,15 @@ class MainWindow(ttk.Frame):
         self._qr_photo = ImageTk.PhotoImage(image)
         self._preview_label.configure(image=self._qr_photo)
 
-        warning = get_url_length_warning(url)
-        if warning:
-            self._status_var.set(f"Generated QR code for {url}. {warning}")
+        warnings = [
+            warning
+            for warning in (
+                get_url_length_warning(url),
+                get_contrast_warning(self._foreground_colour, self._background_colour),
+            )
+            if warning
+        ]
+        if warnings:
+            self._status_var.set(f"Generated QR code for {url}. " + " ".join(warnings))
         else:
             self._status_var.set(f"Generated QR code for {url}")

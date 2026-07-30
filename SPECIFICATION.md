@@ -159,7 +159,9 @@ Requirement IDs are stable once assigned. Do not renumber or reuse an ID.
   error for invalid values (for example a malformed HEX code, or an
   out-of-range RGB/CMYK component).
 * **FR-024** — Warn when the chosen foreground/background combination has
-  poor contrast.
+  poor contrast. The threshold is a WCAG relative-luminance contrast ratio
+  below 4.5:1 (the WCAG 2.x "AA" text minimum, adopted here as a
+  documented, standard baseline in the absence of a QR-specific one).
 * **FR-025** — Treat a dark foreground on a light background as the
   preferred, safest default relationship.
 * **FR-026** — Prevent, or strongly warn against, colour combinations likely

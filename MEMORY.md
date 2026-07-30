@@ -79,6 +79,18 @@ chronological diary — see "Editing rules" at the end.
   the preview (FR-042); an invalid/empty URL is silently ignored by that
   live-refresh path rather than surfacing a validation error, so adjusting
   colours before typing a URL does not spam error messages.
+* Contrast/colour-safety warnings use the WCAG relative-luminance contrast
+  ratio (`colour_service.contrast_ratio`), warning below 4.5:1 (the WCAG
+  "AA" text minimum, adopted as a documented baseline — see "Open
+  decisions" below for the caveat that a QR-specific threshold has not
+  been validated by real scan testing). A second, independent check warns
+  if the foreground is lighter than the background, even when contrast is
+  otherwise fine (FR-025/FR-026).
+* Transparency is not offered anywhere in the current colour model
+  (`Colour` has no alpha channel) — this is the deliberate, conservative
+  reading of FR-027 for this release: rather than support a transparent
+  background that could silently fail to scan, transparency simply is not
+  an option yet.
 
 ## QR safety rules
 
@@ -186,6 +198,12 @@ application, as of this document's creation:
   yellow simultaneously produced a red finder-pattern pixel and a yellow
   quiet-zone pixel in the same rendered image, and an invalid value in one
   control did not affect the other.
+* Contrast and colour-safety warnings are implemented (`QRG-008`).
+  Verified directly: black-on-white shows no warning; a light-grey
+  foreground on white shows a low-contrast warning quoting the actual
+  ratio; white-on-black shows a light-on-dark polarity warning even though
+  its contrast ratio is high. These are Warnings, not Errors — generation
+  is never blocked.
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
@@ -193,20 +211,21 @@ characters preserved exactly, no warning at/below the 300-character
 threshold, warning above it, no network calls made), `tests/test_qr_service.py`
 (a PIL image is produced; the exact supplied URL is what gets passed to
 Segno), and `tests/test_colour_service.py` (HEX/RGB/CMYK parsing and
-validation, and known-value HEX↔RGB↔CMYK round trips for black, white and
-pure red). All 26 tests pass.
+validation; known-value HEX↔RGB↔CMYK round trips for black, white and pure
+red; relative luminance and contrast ratio known values; and contrast/
+polarity warning behaviour). All 33 tests pass.
 
-**What is not yet implemented:** contrast/colour-safety warnings
-(`QRG-008`); central logo upload and placement (`logo_service.py` is a
-docstring-only placeholder); PNG/SVG export (`export_service.py` is a
-docstring-only placeholder, no save dialog exists); any preferences
-storage; automated QR decoding tests; any packaging; any CI configuration.
+**What is not yet implemented:** central logo upload and placement
+(`logo_service.py` is a docstring-only placeholder); PNG/SVG export
+(`export_service.py` is a docstring-only placeholder, no save dialog
+exists); any preferences storage; automated QR decoding tests; any
+packaging; any CI configuration.
 
-**Current milestone:** Milestone 2 — Colour controls — under way
-(`QRG-005`, `QRG-006`, `QRG-007` complete).
+**Current milestone:** Milestone 2 — Colour controls — complete
+(`QRG-005` through `QRG-008`). Milestone 3 — Central image — next.
 
-**Recommended next backlog item:** `QRG-008` — Add contrast and colour
-safety validation (see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-009` — Add logo file selection and
+validation (see `BACKLOG.md`).
 
 ## Open decisions
 
@@ -218,6 +237,11 @@ Genuinely unresolved, durable questions:
   structurally guaranteed by the code — only observed.
 * The exact logo-size safe default and maximum (`SPECIFICATION.md`
   FR-035/FR-036) — pending real scan testing.
+* Whether the 4.5:1 WCAG contrast threshold (`SPECIFICATION.md` FR-024) is
+  actually the right bar for QR scan reliability specifically, as opposed
+  to text readability — it was adopted as a documented, defensible
+  standard in the absence of a QR-specific one, but has not been checked
+  against physical scan testing (`QRG-016`).
 * Which automated QR-decoding library to use for `QRG-015` (a
   development-only dependency).
 * The specific Ubuntu packaging format/tooling detail beyond "PyInstaller is
