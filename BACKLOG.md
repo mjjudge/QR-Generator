@@ -33,11 +33,15 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 5 — Scannability and quality — under
-  way (`QRG-015`, `QRG-017` complete; `QRG-016` partial, needs a human
-  with real hardware).
-* **Recommended next item:** `QRG-018` — Harden error handling (the last
-  agent-completable item in this milestone).
+* **Current milestone:** Milestone 5 — Scannability and quality —
+  agent-completable work done (`QRG-015`, `QRG-017`, `QRG-018` complete;
+  `QRG-016` partial, needs a human with real hardware). Milestone 6
+  (Packaging and release) is the only fully agent-completable work
+  remaining, though `QRG-019`–`QRG-022` mostly depend on `QRG-016` first.
+* **Recommended next item:** None purely agent-completable remains
+  without `QRG-016`. If the user wants to keep going regardless,
+  `QRG-020` (continuous integration) has no hard dependency on physical
+  scan testing and could reasonably be pulled forward.
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
   `THIRD_PARTY_NOTICES.md`; `pytest -q` (81 passed); `ruff check .` (all
@@ -748,16 +752,60 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-018 — Harden error handling
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Cover every user-facing error case listed in
   `SPECIFICATION.md` §12 that is not already covered by earlier items.
-* **Acceptance criteria:** Each case in §12 (invalid URL, invalid colour,
-  unsupported logo format, corrupt image, oversized image, failed
-  generation, failed export, permission errors, missing optional
-  dependency, unexpected internal error) results in a clear status message
-  or dialog, never a bare traceback.
-* **Dependencies:** Most of Milestones 2–4.
-* **Validation requirements:** A test or manual check per error case.
+* **Acceptance criteria — audited against actual code, not assumed, for
+  each case in §12:**
+  * Invalid URL, invalid colour, unsupported logo format, corrupt image,
+    permission errors — ✅ **already handled** by earlier items
+    (`validate_url`/`URLValidationError`; `ColourControl`'s
+    `ColourValidationError`/`ValueError` handling; `load_logo`'s format
+    and `UnidentifiedImageError` handling; `OSError`, which
+    `PermissionError` subclasses, already caught in both `load_logo` and
+    `save_png`/`save_svg`). Re-confirmed by re-reading each, not just
+    trusted from memory.
+  * **Oversized image — a real bug found and fixed.**
+    `PIL.Image.DecompressionBombError` (Pillow's own safety limit against
+    memory-exhausting images) does **not** inherit from `OSError`, so
+    `load_logo`'s existing exception handling missed it entirely.
+    Reproduced directly before fixing: selecting an oversized image raised
+    an unhandled `DecompressionBombError`, not a clean
+    `LogoValidationError`. Fixed with a dedicated `except
+    Image.DecompressionBombError` clause; regression test
+    `test_rejects_an_oversized_decompression_bomb_style_image` (using a
+    monkeypatched, artificially-low `Image.MAX_IMAGE_PIXELS` rather than
+    generating an actually huge file) confirms it now raises
+    `LogoValidationError` cleanly.
+  * **Failed export / unexpected internal error — a real gap found and
+    fixed.** `_on_export_png`/`_on_export_svg` in `ui/main_window.py`
+    caught only `ExportError`, unlike `_generate_and_show`, which already
+    caught broad `Exception`. Any unexpected failure during rendering for
+    export (as opposed to the save step, which was already wrapped in
+    `ExportError`) would have propagated as an unhandled traceback.
+    Reproduced directly by monkeypatching `render_png_for_export`/
+    `render_svg_for_export` to raise a generic `RuntimeError`: the status
+    bar previously would not have caught this. Fixed by broadening both
+    handlers to `except Exception`, matching the pattern already used
+    for generation; `ExportError` became an unused import in
+    `main_window.py` as a result and was removed.
+  * Missing optional dependency — **not applicable in this release**:
+    Segno and Pillow are hard runtime dependencies (the application
+    cannot start without them, which is an acceptable failure mode for a
+    missing hard dependency), and `zxing-cpp` is dev-only and never
+    imported by the application itself. There is currently no optional,
+    conditionally-imported runtime dependency to handle gracefully.
+* **Validation:** `pytest -q` → 82 passed (1 new). `ruff check .` and
+  `ruff format --check .` → both clean. Both fixes were verified to
+  actually reproduce the bug *before* fixing (not just asserted after),
+  and confirmed fixed by direct script: the decompression-bomb case via
+  `load_logo`, and the export-handler case via a monkeypatched failure
+  injected into `_on_export_png`/`_on_export_svg`, both resulting in a
+  clean status message rather than a propagated exception.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
+  This closes Milestone 5's agent-completable work; only `QRG-016`
+  (physical scan testing, needs a human with real hardware) remains open
+  in this milestone.
 
 ---
 

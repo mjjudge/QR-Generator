@@ -70,6 +70,11 @@ def load_logo(path: Path | str) -> Image.Image:
         raise LogoValidationError(
             f"'{file_path.name}' is not a valid image file, or it is corrupt."
         ) from error
+    except Image.DecompressionBombError as error:
+        # Pillow's own safety limit (Image.MAX_IMAGE_PIXELS) against images
+        # so large they risk exhausting memory -- this does not inherit
+        # from OSError, so it needs its own clause.
+        raise LogoValidationError(f"'{file_path.name}' is too large to process safely.") from error
     except OSError as error:
         raise LogoValidationError(f"'{file_path.name}' could not be read: {error}") from error
 

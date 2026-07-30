@@ -51,6 +51,18 @@ def test_rejects_corrupt_file_content(tmp_path):
         load_logo(path)
 
 
+def test_rejects_an_oversized_decompression_bomb_style_image(tmp_path, monkeypatch):
+    # Pillow raises Image.DecompressionBombError (not an OSError subclass)
+    # for images exceeding Image.MAX_IMAGE_PIXELS; artificially lower that
+    # limit rather than generating an actually huge file.
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 10)
+    path = tmp_path / "oversized.png"
+    _write_png(path, size=(100, 100))
+
+    with pytest.raises(LogoValidationError):
+        load_logo(path)
+
+
 def test_rejects_unsupported_format_even_with_a_png_extension(tmp_path):
     # A genuine BMP saved with a misleading .png extension: validation must
     # be content-based (NFR-008), not trust the file extension.

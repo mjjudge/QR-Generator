@@ -24,7 +24,6 @@ from qr_code_generator.services.colour_service import (
 from qr_code_generator.services.export_service import (
     DEFAULT_PNG_SIZE_LABEL,
     PNG_SIZE_PRESETS,
-    ExportError,
     default_export_filename,
     render_png_for_export,
     render_svg_for_export,
@@ -254,7 +253,7 @@ class MainWindow(ttk.Frame):
                 logo_size_ratio=self._logo_size_ratio,
             )
             save_png(image, path)
-        except ExportError as error:
+        except Exception as error:  # noqa: BLE001 - surfaced to the user, not swallowed
             self._status_var.set(f"Could not export PNG: {error}")
             return
 
@@ -283,7 +282,7 @@ class MainWindow(ttk.Frame):
                 logo_size_ratio=self._logo_size_ratio,
             )
             save_svg(svg_text, path)
-        except ExportError as error:
+        except Exception as error:  # noqa: BLE001 - surfaced to the user, not swallowed
             self._status_var.set(f"Could not export SVG: {error}")
             return
 

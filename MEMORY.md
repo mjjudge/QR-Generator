@@ -360,17 +360,31 @@ pass.
   taller than the fixed initial window height at that scale, requiring a
   manual resize. A true OS-level scaling check on a real desktop remains
   unverified in this environment.
+* Error handling was audited against every case in `SPECIFICATION.md`
+  §12 (`QRG-018`), not just assumed correct. Two real bugs were found
+  and fixed: `load_logo` let `Image.DecompressionBombError` (Pillow's
+  oversized-image safety limit, which does not inherit from `OSError`)
+  propagate unhandled; and `_on_export_png`/`_on_export_svg` only caught
+  `ExportError`, missing any unexpected failure during rendering (as
+  opposed to saving). Both were reproduced directly before fixing, and
+  confirmed fixed afterwards by re-reproducing the same failure and
+  observing a clean status message instead. Every other §12 case was
+  already handled by earlier work and re-confirmed by reading the actual
+  code, not recalled from memory.
 
 **What is not yet implemented:** any preferences storage (including a
 remembered last export directory — deliberately deferred, not an
 oversight); any packaging; any CI configuration.
 
-**Current milestone:** Milestone 5 — Scannability and quality — under
-way (`QRG-015`, `QRG-017` complete; `QRG-016` partial, needs a human with
-real hardware).
+**Current milestone:** Milestone 5 — Scannability and quality —
+agent-completable work complete (`QRG-015`, `QRG-017`, `QRG-018`;
+`QRG-016` partial, needs a human with real hardware).
 
-**Recommended next backlog item:** `QRG-018` — Harden error handling (see
-`BACKLOG.md`) — the last agent-completable item in this milestone.
+**Recommended next backlog item:** No purely agent-completable item
+remains in Milestone 5 without `QRG-016` (needs a human with real
+hardware). `QRG-020` (continuous integration, Milestone 6) has no hard
+dependency on it and could reasonably be pulled forward if the user
+wants to keep going (see `BACKLOG.md`).
 
 ## Open decisions
 
