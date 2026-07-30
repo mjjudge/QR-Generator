@@ -65,6 +65,14 @@ chronological diary — see "Editing rules" at the end.
 * PyInstaller remains the intended eventual Ubuntu packaging approach (not
   yet attempted or validated — see `BACKLOG.md` `QRG-019`).
 * No CI configuration exists yet (see `BACKLOG.md` `QRG-020`).
+* `zxing-cpp` is a **development-only** dependency (a pip extra under
+  `dev`, not a runtime dependency), used solely to prove in automated
+  tests that generated QR codes — including logo-bearing ones — decode
+  back to the exact source URL. Chosen because it ships a prebuilt Linux
+  wheel with no system package required, keeping the Ubuntu offline setup
+  simple. This resolves the "which decoding library" open decision ahead
+  of schedule (originally slated for `QRG-015`), pulled forward into
+  `QRG-010` because that item's own acceptance criteria required it.
 * The colour model (`models/colour.py`'s `Colour` dataclass, plus
   `services/colour_service.py`'s HEX/RGB/CMYK parsing and conversion) is
   the single sRGB source of truth that keeps colour entry methods
@@ -112,6 +120,14 @@ chronological diary — see "Editing rules" at the end.
   print-and-scan testing (Android, iPhone, printed leaflet sizes) is
   additionally required before any production-oriented release — automated
   decoding does not substitute for it.
+* Finder-pattern protection for a central logo is enforced geometrically,
+  not by a fixed guess: `logo_service.max_safe_logo_ratio` derives, from
+  the QR image's own module count, the largest centred square guaranteed
+  clear of all three (corner-only, always-7×7-module) finder patterns.
+  This is combined with a fixed 30% absolute ceiling
+  (`MAX_LOGO_SIZE_RATIO`) and an 18% default (`DEFAULT_LOGO_SIZE_RATIO`) —
+  whichever of the three is smallest wins. See `BACKLOG.md` `QRG-010` for
+  the full derivation.
 
 ## Repository governance
 
@@ -215,34 +231,48 @@ application, as of this document's creation:
   valid PNG is accepted and its filename/dimensions shown; a corrupt file
   and a BMP disguised with a `.png` extension are both rejected with a
   clear message, leaving any previously-selected valid logo untouched;
-  Remove clears the selection. **The selected logo is not yet placed on
-  the QR code** — this is `QRG-010`, and the status message says so
-  explicitly so as not to imply more than has been built.
+  Remove clears the selection.
+* Logo placement is implemented (`QRG-010`): selecting a logo composites
+  it, centred, onto the QR preview immediately (live refresh), with a
+  background clearance panel matching the QR's own background colour.
+  Verified directly, against the actual displayed image: the result still
+  decodes (via `zxingcpp`) to the exact source URL with the logo present,
+  and reverts cleanly (still decoding correctly) when the logo is
+  removed. Finder-pattern protection and sizing (18% default / 30% max /
+  a geometrically-derived per-code safe maximum, whichever is smallest)
+  are described above under "Durable technical decisions". The logo size
+  is not yet user-adjustable (fixed at the 18% default) — that's
+  `QRG-011`.
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
 characters preserved exactly, no warning at/below the 300-character
 threshold, warning above it, no network calls made), `tests/test_qr_service.py`
 (a PIL image is produced; the exact supplied URL is what gets passed to
-Segno), `tests/test_colour_service.py` (HEX/RGB/CMYK parsing and
-validation; known-value HEX↔RGB↔CMYK round trips for black, white and pure
-red; relative luminance and contrast ratio known values; and contrast/
-polarity warning behaviour), and `tests/test_logo_service.py` (valid PNG
-and JPEG/JPG loading; missing file, corrupt content, and
-extension-spoofed-format rejection; no modification of the source file;
-and a genuine in-memory copy). All 41 tests pass.
+Segno; error correction is always level H), `tests/test_colour_service.py`
+(HEX/RGB/CMYK parsing and validation; known-value HEX↔RGB↔CMYK round trips
+for black, white and pure red; relative luminance and contrast ratio known
+values; and contrast/polarity warning behaviour), and
+`tests/test_logo_service.py` (valid PNG and JPEG/JPG loading; missing
+file, corrupt content, and extension-spoofed-format rejection; no
+modification of the source file; a genuine in-memory copy; the
+finder-pattern-safe-ratio derivation against a known worst case;
+aspect-ratio preservation; no mutation of either input to `apply_logo`;
+finder-pattern pixels left untouched; and logo-bearing codes decoding to
+the exact URL for both the shortest and a typical URL). All 48 tests
+pass.
 
-**What is not yet implemented:** logo placement/compositing onto the QR
-code (the logo is validated and stored, but not yet drawn — `QRG-010`);
-PNG/SVG export (`export_service.py` is a docstring-only placeholder, no
-save dialog exists); any preferences storage; automated QR decoding
-tests; any packaging; any CI configuration.
+**What is not yet implemented:** user-adjustable logo sizing (fixed at the
+18% default — `QRG-011`); PNG/SVG export (`export_service.py` is a
+docstring-only placeholder, no save dialog exists); any preferences
+storage; a dedicated decoding test for a plain/coloured (non-logo) QR
+code (remaining `QRG-015` scope); any packaging; any CI configuration.
 
 **Current milestone:** Milestone 3 — Central image — under way
-(`QRG-009` complete).
+(`QRG-009`, `QRG-010` complete).
 
-**Recommended next backlog item:** `QRG-010` — Implement safe central
-logo placement (see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-011` — Add logo sizing controls
+and warnings (see `BACKLOG.md`).
 
 ## Open decisions
 
@@ -252,15 +282,17 @@ Genuinely unresolved, durable questions:
   Current behaviour was verified correct (Segno does not select a Micro QR
   Code for representative short or long URL content), but this is not
   structurally guaranteed by the code — only observed.
-* The exact logo-size safe default and maximum (`SPECIFICATION.md`
-  FR-035/FR-036) — pending real scan testing.
+* The logo-size default (18%) and absolute maximum (30%) are now decided
+  and implemented (`SPECIFICATION.md` FR-035/FR-036), but not yet
+  validated against real print-and-scan testing (`QRG-016`) — the numbers
+  are a reasoned engineering choice (comfortably under error-correction
+  level H's ~30% correctable-codeword budget), not an empirically proven
+  one yet.
 * Whether the 4.5:1 WCAG contrast threshold (`SPECIFICATION.md` FR-024) is
   actually the right bar for QR scan reliability specifically, as opposed
   to text readability — it was adopted as a documented, defensible
   standard in the absence of a QR-specific one, but has not been checked
   against physical scan testing (`QRG-016`).
-* Which automated QR-decoding library to use for `QRG-015` (a
-  development-only dependency).
 * The specific Ubuntu packaging format/tooling detail beyond "PyInstaller is
   the intended default" (e.g. plain PyInstaller bundle vs `.deb` vs
   AppImage).

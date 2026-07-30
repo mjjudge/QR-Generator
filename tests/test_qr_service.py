@@ -2,7 +2,14 @@ import segno
 from PIL import Image
 
 from qr_code_generator.models.qr_settings import QRSettings
-from qr_code_generator.services.qr_service import generate_qr_image
+from qr_code_generator.services.qr_service import ERROR_CORRECTION_LEVEL, generate_qr_image
+
+
+def test_error_correction_is_always_level_h():
+    # A central logo (QRG-010) always requires level H; rather than only
+    # documenting this, assert it so a future change can't silently regress
+    # logo safety (FR-037).
+    assert ERROR_CORRECTION_LEVEL == "h"
 
 
 def test_generates_an_image_for_a_valid_url():

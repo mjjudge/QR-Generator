@@ -183,10 +183,12 @@ Requirement IDs are stable once assigned. Do not renumber or reuse an ID.
   separation.
 * **FR-034** — Prevent the image from overlapping the QR code's finder
   patterns (the three large corner squares).
-* **FR-035** — Default to a conservative image size relative to the overall
-  code.
+* **FR-035** — Default to a conservative image size relative to the
+  overall code: 18% of the QR code's width.
 * **FR-036** — Enforce a safe maximum image size, beyond which placement is
-  refused or strongly blocked.
+  refused or strongly blocked: 30% of the QR code's width, or the largest
+  footprint geometrically guaranteed not to overlap the finder patterns
+  for that specific QR code (FR-034), whichever is smaller.
 * **FR-037** — Require error-correction level H whenever a central image is
   present.
 * **FR-038** — Make clear to the user that high error correction alone does

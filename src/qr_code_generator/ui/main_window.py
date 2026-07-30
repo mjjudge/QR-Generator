@@ -21,7 +21,7 @@ from qr_code_generator.services.colour_service import (
     get_contrast_warning,
     parse_hex,
 )
-from qr_code_generator.services.logo_service import LogoValidationError, load_logo
+from qr_code_generator.services.logo_service import LogoValidationError, apply_logo, load_logo
 from qr_code_generator.services.qr_service import generate_qr_image
 from qr_code_generator.services.validation_service import (
     URLValidationError,
@@ -140,14 +140,14 @@ class MainWindow(ttk.Frame):
             return
         self._logo_image = image
         self._logo_filename_var.set(f"{name} ({image.width}×{image.height})")
-        self._status_var.set(
-            f"Logo '{name}' loaded. Placing it on the QR code is not yet supported."
-        )
+        self._status_var.set(f"Logo '{name}' loaded.")
+        self._refresh_preview_if_url_valid()
 
     def _on_remove_logo(self) -> None:
         self._logo_image = None
         self._logo_filename_var.set("No logo selected.")
         self._status_var.set("Logo removed.")
+        self._refresh_preview_if_url_valid()
 
     def _refresh_preview_if_url_valid(self) -> None:
         """Re-render the preview after a setting change (FR-042), without
@@ -175,6 +175,8 @@ class MainWindow(ttk.Frame):
         )
         try:
             image = generate_qr_image(settings)
+            if self._logo_image is not None:
+                image = apply_logo(image, self._logo_image)
         except Exception as error:  # noqa: BLE001 - surfaced to the user, not swallowed
             self._status_var.set(f"Could not generate QR code: {error}")
             return

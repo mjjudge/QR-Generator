@@ -34,20 +34,21 @@ this file is out of date — treat that as a defect to fix immediately.
 ## Current state (evidence-based, as of this document's creation)
 
 * **Current milestone:** Milestone 3 — Central image — under way
-  (`QRG-009` complete).
-* **Recommended next item:** `QRG-010` — Implement safe central logo
-  placement (composite the already-validated logo onto the QR code, with
-  finder-pattern protection and forced error-correction level H).
+  (`QRG-009`, `QRG-010` complete).
+* **Recommended next item:** `QRG-011` — Add logo sizing controls and
+  warnings (user-adjustable size within the safe limits `QRG-010`
+  established).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (41 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (48 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
-  validation and live preview refresh, contrast/polarity warnings, and
-  logo selection/rejection/removal; and direct pixel/byte-level checks
-  confirming chosen colours render correctly and that logo files are
-  never modified on disk.
+  validation and live preview refresh, contrast/polarity warnings, logo
+  selection/rejection/removal, and logo placement with a live decoding
+  check against the actual displayed image; and direct pixel/byte-level
+  checks confirming chosen colours render correctly, logo files are never
+  modified on disk, and finder-pattern pixels are never touched.
 
 ---
 
@@ -336,19 +337,74 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-010 — Implement safe central logo placement
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Composite a validated logo onto the QR code safely.
 * **Acceptance criteria:**
-  * Aspect ratio preserved (FR-030, FR-039).
+  * Aspect ratio preserved (FR-030, FR-039). ✅ `logo_service.apply_logo`
+    uses `PIL.ImageOps.contain`, which fits the logo within its bounding
+    box without stretching; verified by
+    `test_apply_logo_preserves_overall_image_size` with a deliberately
+    wide (200×50) logo.
   * Conservative default size and enforced safe maximum (FR-035, FR-036).
+    ✅ `DEFAULT_LOGO_SIZE_RATIO = 0.18` (18% of QR width);
+    `MAX_LOGO_SIZE_RATIO = 0.30` (30%, chosen to stay well under
+    error-correction level H's ~30% correctable-codeword budget, per
+    FR-038 — high error correction is not a blank cheque). The effective
+    footprint is `min(requested, MAX_LOGO_SIZE_RATIO,
+    max_safe_logo_ratio(...))` — see the next bullet for the third term.
+  * No overlap with finder patterns (FR-034). ✅ `max_safe_logo_ratio`
+    computes, from the QR image's own pixel dimensions, the largest
+    centred square guaranteed clear of all three (corner-only) finder
+    patterns, **for that specific QR code**. Derivation: the three
+    finder patterns are always exactly 7×7 modules, in the three corners,
+    for every QR version (ISO/IEC 18004). A centred square footprint of
+    `S` modules, in an image of `module_count + 2*border` modules per
+    side, avoids all three exactly when
+    `S <= module_count - 2*7 + 1` (one module of margin included). This
+    holds regardless of QR version — only the resulting safe *fraction*
+    grows as the code gets bigger. Verified against the known worst case
+    (a synthetic version-1-sized image, 21 modules) in
+    `test_max_safe_logo_ratio_matches_known_derivation`, and directly
+    against a real generated QR code in
+    `test_apply_logo_does_not_touch_finder_pattern_pixels`, which asserts
+    the composited result is pixel-for-pixel identical to the
+    pre-logo image at all three finder-pattern centres.
   * Centred placement with a background clearance panel (FR-032, FR-033).
-  * No overlap with finder patterns (FR-034).
+    ✅ A square panel, filled with the QR's own background colour (sampled
+    from a known-background pixel, not hardcoded), is drawn behind the
+    logo with a 12%-of-panel padding margin.
   * Forces error-correction level H whenever a logo is present (FR-037).
+    ✅ Already true unconditionally in `qr_service.py` regardless of
+    whether a logo is present, since level H is always used (see
+    `QRG-003`) — now asserted directly by
+    `test_error_correction_is_always_level_h`, so a future change can't
+    silently regress this invariant.
   * Unit tests, including a decoding test confirming a logo-bearing code
-    still decodes to the exact source URL.
-* **Dependencies:** `QRG-009`.
-* **Validation requirements:** Automated decoding test (see `QRG-015`);
-  manual visual check.
+    still decodes to the exact source URL. ✅ Added `zxing-cpp` as a
+    **development-only** dependency (pure pip wheel, no system package
+    needed — see `MEMORY.md`) specifically to make this provable now,
+    rather than waiting for `QRG-015`.
+    `test_logo_bearing_qr_code_still_decodes_to_the_exact_url` decodes a
+    logo-bearing code for both the shortest URL validation allows
+    (tightest, smallest QR code — the worst case for finder-pattern
+    clearance) and a longer, more typical URL, asserting the decoded text
+    matches exactly.
+* **Validation:** `pytest -q` → 48 passed (7 new: aspect-ratio
+  preservation, finder-pattern non-overlap, no mutation of either input,
+  the known-derivation check, two decoding cases, plus the FR-037
+  regression test). `ruff check .` and `ruff format --check .` → both
+  clean. A scripted Tkinter smoke test selected a logo with a URL already
+  entered, confirmed the preview live-refreshed with the logo composited,
+  decoded the actual displayed image back to the exact URL via
+  `zxingcpp`, then removed the logo and confirmed the preview reverted
+  (and still decoded correctly).
+* **Known limitation:** The logo size is not yet user-adjustable — only
+  the fixed 18% default is used. User-adjustable sizing within these same
+  safe limits, with warnings/blocking as it approaches them, is `QRG-011`.
+* **Documentation impact:** `SPECIFICATION.md` FR-035/FR-036 updated with
+  the concrete percentages; `MEMORY.md` "Open decisions" — the
+  QR-decoding library choice is now resolved (`zxing-cpp`), pulled
+  forward from `QRG-015`.
 
 ### QRG-011 — Add logo sizing controls and warnings
 
@@ -420,21 +476,30 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-015 — Add automated QR decoding tests
 
-* **Status:** Proposed.
+* **Status:** In Progress (partially pulled forward into `QRG-010`).
 * **Objective:** Confirm generated codes actually decode back to the exact
   source URL.
 * **Acceptance criteria:**
-  * Decode a basic black-on-white QR code.
-  * Decode a coloured QR code.
-  * Decode QR codes bearing representative logos.
-  * Assert the decoded text exactly matches the source URL.
-  * Any decoding dependency introduced for this purpose is a
-    development-only dependency, not a runtime one, unless there is a
-    strong justification recorded in `MEMORY.md`.
-* **Dependencies:** `QRG-006`–`QRG-010` (need coloured/logo output to
-  test against); a decoding library choice, which is an open decision
-  (see `MEMORY.md`).
-* **Validation requirements:** New automated test suite; `pytest` passes.
+  * ~~Decode a basic black-on-white QR code.~~ Covered indirectly by
+    `test_logo_bearing_qr_code_still_decodes_to_the_exact_url`'s
+    same-library decoding, though no dedicated no-logo/no-colour decoding
+    test exists yet as its own item.
+  * Decode a coloured QR code — **not yet covered**.
+  * ~~Decode QR codes bearing representative logos.~~ ✅ Done in `QRG-010`
+    (`tests/test_logo_service.py`), for both a very short and a more
+    typical URL.
+  * ~~Assert the decoded text exactly matches the source URL.~~ ✅ Done
+    for the logo-bearing case.
+  * ~~Any decoding dependency introduced for this purpose is a
+    development-only dependency.~~ ✅ `zxing-cpp`, added as a `dev` extra
+    only (see `MEMORY.md`).
+* **Dependencies:** `QRG-006`–`QRG-010` (done); decoding library choice
+  (resolved: `zxing-cpp`, see `MEMORY.md`).
+* **Validation requirements:** Remaining: a dedicated test decoding a
+  plain black-on-white code and a coloured (non-logo) code, for
+  completeness/symmetry with the logo case already covered.
+* **Documentation impact:** None further until the remaining coverage is
+  added.
 
 ### QRG-016 — Establish physical scan test matrix
 
