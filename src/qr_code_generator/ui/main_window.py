@@ -21,7 +21,15 @@ from qr_code_generator.services.colour_service import (
     get_contrast_warning,
     parse_hex,
 )
-from qr_code_generator.services.logo_service import LogoValidationError, apply_logo, load_logo
+from qr_code_generator.services.logo_service import (
+    DEFAULT_LOGO_SIZE_RATIO,
+    MAX_LOGO_SIZE_RATIO,
+    LogoValidationError,
+    apply_logo,
+    effective_logo_ratio,
+    get_logo_size_warning,
+    load_logo,
+)
 from qr_code_generator.services.qr_service import generate_qr_image
 from qr_code_generator.services.validation_service import (
     URLValidationError,
@@ -31,6 +39,8 @@ from qr_code_generator.services.validation_service import (
 from qr_code_generator.ui.colour_control import ColourControl
 
 _LOGO_FILE_TYPES = [("Image files", "*.png *.jpg *.jpeg"), ("All files", "*.*")]
+_MIN_LOGO_SIZE_PERCENT = 5
+_MAX_LOGO_SIZE_PERCENT = round(MAX_LOGO_SIZE_RATIO * 100)
 
 WINDOW_TITLE = "QR Code Generator"
 WINDOW_SIZE = "480x760"
@@ -50,6 +60,7 @@ class MainWindow(ttk.Frame):
         self._foreground_colour: Colour = parse_hex(DEFAULT_FOREGROUND_COLOUR)
         self._background_colour: Colour = parse_hex(DEFAULT_BACKGROUND_COLOUR)
         self._logo_image: Image.Image | None = None
+        self._logo_size_ratio: float = DEFAULT_LOGO_SIZE_RATIO
 
         self._build_widgets()
         self.pack(fill=tk.BOTH, expand=True)
@@ -86,14 +97,27 @@ class MainWindow(ttk.Frame):
         logo_frame = ttk.LabelFrame(self, text="Logo (optional)", padding=8)
         logo_frame.pack(fill=tk.X, pady=(0, 8))
 
+        logo_row = ttk.Frame(logo_frame)
+        logo_row.pack(fill=tk.X)
         self._logo_filename_var = tk.StringVar(value="No logo selected.")
-        ttk.Label(logo_frame, textvariable=self._logo_filename_var).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(logo_frame, text="Choose image…", command=self._on_choose_logo).pack(
-            side=tk.LEFT
-        )
-        ttk.Button(logo_frame, text="Remove", command=self._on_remove_logo).pack(
+        ttk.Label(logo_row, textvariable=self._logo_filename_var).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(logo_row, text="Choose image…", command=self._on_choose_logo).pack(side=tk.LEFT)
+        ttk.Button(logo_row, text="Remove", command=self._on_remove_logo).pack(
             side=tk.LEFT, padx=(4, 0)
         )
+
+        size_row = ttk.Frame(logo_frame)
+        size_row.pack(fill=tk.X, pady=(6, 0))
+        ttk.Label(size_row, text="Size:").pack(side=tk.LEFT)
+        self._logo_size_var = tk.StringVar(value=f"{round(DEFAULT_LOGO_SIZE_RATIO * 100)}%")
+        ttk.Label(size_row, textvariable=self._logo_size_var, width=5).pack(side=tk.LEFT)
+        ttk.Scale(
+            size_row,
+            from_=_MIN_LOGO_SIZE_PERCENT,
+            to=_MAX_LOGO_SIZE_PERCENT,
+            value=round(DEFAULT_LOGO_SIZE_RATIO * 100),
+            command=self._on_logo_size_changed,
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
         ttk.Button(self, text="Generate", command=self._on_generate).pack(anchor=tk.W, pady=(0, 12))
 
@@ -149,6 +173,12 @@ class MainWindow(ttk.Frame):
         self._status_var.set("Logo removed.")
         self._refresh_preview_if_url_valid()
 
+    def _on_logo_size_changed(self, value: str) -> None:
+        percent = round(float(value))
+        self._logo_size_var.set(f"{percent}%")
+        self._logo_size_ratio = percent / 100
+        self._refresh_preview_if_url_valid()
+
     def _refresh_preview_if_url_valid(self) -> None:
         """Re-render the preview after a setting change (FR-042), without
         showing a validation error for a URL the user has not finished typing.
@@ -173,10 +203,14 @@ class MainWindow(ttk.Frame):
             foreground_colour=self._foreground_colour.to_hex(),
             background_colour=self._background_colour.to_hex(),
         )
+        logo_size_warning = None
         try:
             image = generate_qr_image(settings)
             if self._logo_image is not None:
-                image = apply_logo(image, self._logo_image)
+                logo_size_warning = get_logo_size_warning(
+                    effective_logo_ratio(image, self._logo_size_ratio), self._logo_size_ratio
+                )
+                image = apply_logo(image, self._logo_image, size_ratio=self._logo_size_ratio)
         except Exception as error:  # noqa: BLE001 - surfaced to the user, not swallowed
             self._status_var.set(f"Could not generate QR code: {error}")
             return
@@ -189,6 +223,7 @@ class MainWindow(ttk.Frame):
             for warning in (
                 get_url_length_warning(url),
                 get_contrast_warning(self._foreground_colour, self._background_colour),
+                logo_size_warning,
             )
             if warning
         ]

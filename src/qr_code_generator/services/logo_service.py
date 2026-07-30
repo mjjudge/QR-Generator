@@ -38,6 +38,11 @@ MAX_LOGO_SIZE_RATIO = 0.30
 #: a fraction of the panel's size (FR-033).
 _PANEL_PADDING_FRACTION = 0.12
 
+#: At or above this footprint, warn that a large logo can reduce scan
+#: reliability even though it remains within the hard limits above
+#: (FR-038). Set at 80% of `MAX_LOGO_SIZE_RATIO`.
+LARGE_LOGO_WARNING_RATIO = 0.8 * MAX_LOGO_SIZE_RATIO
+
 
 class LogoValidationError(ValueError):
     """Raised when a supplied logo file cannot be used as a central image."""
@@ -96,6 +101,39 @@ def max_safe_logo_ratio(qr_image: Image.Image, scale: int = DEFAULT_SCALE) -> fl
     return safe_span_modules / total_modules
 
 
+def effective_logo_ratio(
+    qr_image: Image.Image, requested_ratio: float, scale: int = DEFAULT_SCALE
+) -> float:
+    """The footprint ratio actually used for `qr_image`, after applying the
+    absolute maximum and this code's own finder-pattern-safe maximum --
+    whichever of the three is smallest (FR-034, FR-036).
+    """
+    return min(requested_ratio, MAX_LOGO_SIZE_RATIO, max_safe_logo_ratio(qr_image, scale))
+
+
+def get_logo_size_warning(effective_ratio: float, requested_ratio: float) -> str | None:
+    """Return a warning about the logo's size, or None if it looks safe.
+
+    Two independent conditions are checked: whether the requested size had
+    to be reduced to respect the safe/absolute limits (in which case that
+    takes priority), and -- only if no reduction was needed -- whether the
+    resulting size is large enough that high error correction alone may
+    not guarantee reliable scanning (FR-038), even though it is
+    geometrically clear of the finder patterns.
+    """
+    if effective_ratio < requested_ratio - 1e-9:
+        return (
+            f"Logo size reduced to {effective_ratio * 100:.0f}% (from the requested "
+            f"{requested_ratio * 100:.0f}%) to stay clear of this QR code's finder patterns."
+        )
+    if effective_ratio >= LARGE_LOGO_WARNING_RATIO:
+        return (
+            "A logo this large can reduce scan reliability, even with high error "
+            "correction; consider a smaller size, especially for printed use."
+        )
+    return None
+
+
 def apply_logo(
     qr_image: Image.Image,
     logo: Image.Image,
@@ -107,13 +145,11 @@ def apply_logo(
     background clearance panel.
 
     The logo's aspect ratio is always preserved -- it is never stretched
-    or distorted (FR-030, FR-039). Its footprint is capped by whichever is
-    smallest of: the requested `size_ratio`, `MAX_LOGO_SIZE_RATIO`, and
-    `max_safe_logo_ratio` for this specific QR code (FR-034, FR-036).
-    Neither `qr_image` nor `logo` is modified; a new image is returned
-    (FR-040).
+    or distorted (FR-030, FR-039). Its footprint is capped by
+    `effective_logo_ratio`. Neither `qr_image` nor `logo` is modified; a
+    new image is returned (FR-040).
     """
-    effective_ratio = min(size_ratio, MAX_LOGO_SIZE_RATIO, max_safe_logo_ratio(qr_image, scale))
+    effective_ratio = effective_logo_ratio(qr_image, size_ratio, scale)
     panel_size = round(qr_image.width * effective_ratio)
     logo_box_size = max(round(panel_size * (1 - 2 * _PANEL_PADDING_FRACTION)), 1)
 

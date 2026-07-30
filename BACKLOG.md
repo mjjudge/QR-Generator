@@ -33,22 +33,21 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 3 — Central image — under way
-  (`QRG-009`, `QRG-010` complete).
-* **Recommended next item:** `QRG-011` — Add logo sizing controls and
-  warnings (user-adjustable size within the safe limits `QRG-010`
-  established).
+* **Current milestone:** Milestone 3 — Central image — complete
+  (`QRG-009` through `QRG-011`). Milestone 4 — Export — next.
+* **Recommended next item:** `QRG-012` — Implement PNG export.
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (48 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (54 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
   validation and live preview refresh, contrast/polarity warnings, logo
-  selection/rejection/removal, and logo placement with a live decoding
-  check against the actual displayed image; and direct pixel/byte-level
-  checks confirming chosen colours render correctly, logo files are never
-  modified on disk, and finder-pattern pixels are never touched.
+  selection/rejection/removal, logo placement with a live decoding check,
+  and logo size adjustment with both reduction and large-but-safe
+  warnings; and direct pixel/byte-level checks confirming chosen colours
+  render correctly, logo files are never modified on disk, and
+  finder-pattern pixels are never touched.
 
 ---
 
@@ -408,15 +407,53 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-011 — Add logo sizing controls and warnings
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Let the user adjust logo size within safe limits.
 * **Acceptance criteria:**
-  * Adjustable size within the safe range established by `QRG-010`.
-  * Immediate warning as size approaches the safe maximum (FR-038).
-  * Hard rejection beyond the maximum, not just a warning.
-* **Dependencies:** `QRG-010`.
-* **Validation requirements:** Manual UI testing; unit test for the
-  boundary condition.
+  * Adjustable size within the safe range established by `QRG-010`. ✅ A
+    `ttk.Scale` in the Logo section, ranging from 5% to
+    `MAX_LOGO_SIZE_RATIO` (30%) — its `to=` bound structurally prevents
+    requesting anything above the absolute maximum at all, satisfying the
+    "hard rejection" criterion below by construction rather than by a
+    runtime check. `MainWindow._logo_size_ratio` drives
+    `apply_logo(..., size_ratio=...)`, live-refreshing the preview as the
+    slider moves (FR-042).
+  * Immediate warning as size approaches the safe maximum (FR-038). ✅
+    `logo_service.get_logo_size_warning`, shown alongside the other
+    status warnings: at or above `LARGE_LOGO_WARNING_RATIO` (80% of the
+    absolute maximum, i.e. 24%), a caution is shown that a large logo can
+    reduce scan reliability even with high error correction — even when
+    the size is otherwise within all hard limits.
+  * Hard rejection beyond the maximum, not just a warning. ✅ Two layers:
+    the slider's own range makes requesting above 30% impossible in the
+    UI at all; independently, `effective_logo_ratio` also clamps to
+    whichever is smaller of the absolute maximum and the per-code
+    finder-pattern-safe maximum from `QRG-010`, and
+    `get_logo_size_warning` reports when that clamping actually changed
+    the requested size.
+* **Validation:** `pytest -q` → 54 passed (6 new:
+  `effective_logo_ratio` returning the request unchanged when well within
+  limits, clamped by the absolute maximum, and clamped by finder-pattern
+  safety; `get_logo_size_warning` for no-warning, reduced, and
+  large-but-safe cases). `ruff check .` and `ruff format --check .` →
+  both clean. A scripted Tkinter smoke test dragged the slider to 30% on
+  the shortest URL validation allows (the tightest real-world QR case)
+  and to 25% on a longer URL, confirming appropriate warnings appear, and
+  that the actual displayed image still decodes to the exact URL at
+  whatever size was actually applied.
+* **Known nuance (evidence-based, not assumed):** in practice, even the
+  shortest URL `validate_url` accepts already produces QR version 2 (not
+  the theoretical version-1 minimum), whose finder-pattern-safe ratio
+  (~36%) is *above* the absolute 30% cap — so for every realistic URL
+  this application can generate, the **absolute** 30% cap is what
+  actually binds, not the geometric finder-pattern one. The
+  finder-pattern-safety clamp is still real, correct, and covered by
+  direct unit tests against a synthetic version-1-sized image
+  (`test_effective_logo_ratio_clamped_by_finder_pattern_safety`); it is
+  just not reachable through the live application with any URL currently
+  accepted, which is why the smoke test above shows the "large but safe"
+  warning rather than a "reduced to" one.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
 
 ---
 

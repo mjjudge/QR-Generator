@@ -4,8 +4,12 @@ from PIL import Image
 
 from qr_code_generator.models.qr_settings import QRSettings
 from qr_code_generator.services.logo_service import (
+    LARGE_LOGO_WARNING_RATIO,
+    MAX_LOGO_SIZE_RATIO,
     LogoValidationError,
     apply_logo,
+    effective_logo_ratio,
+    get_logo_size_warning,
     load_logo,
     max_safe_logo_ratio,
 )
@@ -95,6 +99,42 @@ def test_max_safe_logo_ratio_matches_known_derivation():
     ratio = max_safe_logo_ratio(image, scale=10)
     # Safe span = 21 - 2*7 + 1 = 8 modules, out of 29 total modules.
     assert ratio == pytest.approx(8 / 29)
+
+
+def test_effective_logo_ratio_returns_requested_when_well_within_limits():
+    # Version-3-sized image (29 modules + 2*4 border): safe max = 16/37 ~= 43.2%.
+    image = Image.new("RGB", (370, 370), "white")
+    assert effective_logo_ratio(image, 0.18, scale=10) == pytest.approx(0.18)
+
+
+def test_effective_logo_ratio_clamped_by_absolute_maximum():
+    image = Image.new("RGB", (370, 370), "white")  # safe max ~= 43.2%, above MAX_LOGO_SIZE_RATIO
+    assert effective_logo_ratio(image, 0.5, scale=10) == pytest.approx(MAX_LOGO_SIZE_RATIO)
+
+
+def test_effective_logo_ratio_clamped_by_finder_pattern_safety():
+    # Version-1-sized image: safe max = 8/29 ~= 27.6%, below MAX_LOGO_SIZE_RATIO (30%).
+    image = Image.new("RGB", (290, 290), "white")
+    assert effective_logo_ratio(image, MAX_LOGO_SIZE_RATIO, scale=10) == pytest.approx(8 / 29)
+
+
+def test_no_logo_size_warning_for_a_small_unreduced_request():
+    assert get_logo_size_warning(effective_ratio=0.10, requested_ratio=0.10) is None
+
+
+def test_logo_size_warning_when_request_is_reduced():
+    warning = get_logo_size_warning(effective_ratio=0.20, requested_ratio=0.30)
+    assert warning is not None
+    assert "reduced to 20%" in warning
+    assert "requested 30%" in warning
+
+
+def test_logo_size_warning_for_a_large_but_unreduced_request():
+    assert LARGE_LOGO_WARNING_RATIO < MAX_LOGO_SIZE_RATIO
+    warning = get_logo_size_warning(effective_ratio=0.25, requested_ratio=0.25)
+    assert warning is not None
+    assert "reduce scan reliability" in warning
+    assert "reduced to" not in warning
 
 
 def test_apply_logo_preserves_overall_image_size():

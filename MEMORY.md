@@ -128,6 +128,16 @@ chronological diary — see "Editing rules" at the end.
   (`MAX_LOGO_SIZE_RATIO`) and an 18% default (`DEFAULT_LOGO_SIZE_RATIO`) —
   whichever of the three is smallest wins. See `BACKLOG.md` `QRG-010` for
   the full derivation.
+* Even the shortest URL `validate_url` accepts already produces QR
+  version 2, not version 1 — meaning the finder-pattern-safe ratio (~36%
+  at version 2) is always above the 30% absolute cap for any URL this
+  application can actually generate. In practice, the **absolute** cap is
+  what binds, not the geometric one, though the geometric clamp is real
+  and directly unit-tested against a synthetic version-1-sized image.
+  Logo size is user-adjustable via a slider whose range (5%-30%) itself
+  structurally prevents requesting above the absolute maximum; warnings
+  cover both an actual reduction and a "large but safe" caution at ≥24%
+  (`QRG-011`).
 
 ## Repository governance
 
@@ -240,9 +250,13 @@ application, as of this document's creation:
   and reverts cleanly (still decoding correctly) when the logo is
   removed. Finder-pattern protection and sizing (18% default / 30% max /
   a geometrically-derived per-code safe maximum, whichever is smallest)
-  are described above under "Durable technical decisions". The logo size
-  is not yet user-adjustable (fixed at the 18% default) — that's
-  `QRG-011`.
+  are described above under "Durable technical decisions".
+* Logo size is user-adjustable (`QRG-011`) via a slider (5%-30%), with
+  live preview refresh and two independent warnings: a reduction notice
+  if the requested size had to be clamped, and a "large but safe" caution
+  at 24% and above. Verified directly against the live application: both
+  warning types appear appropriately, and the composited result still
+  decodes to the exact URL at whatever size was actually applied.
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
@@ -262,17 +276,16 @@ finder-pattern pixels left untouched; and logo-bearing codes decoding to
 the exact URL for both the shortest and a typical URL). All 48 tests
 pass.
 
-**What is not yet implemented:** user-adjustable logo sizing (fixed at the
-18% default — `QRG-011`); PNG/SVG export (`export_service.py` is a
+**What is not yet implemented:** PNG/SVG export (`export_service.py` is a
 docstring-only placeholder, no save dialog exists); any preferences
 storage; a dedicated decoding test for a plain/coloured (non-logo) QR
 code (remaining `QRG-015` scope); any packaging; any CI configuration.
 
-**Current milestone:** Milestone 3 — Central image — under way
-(`QRG-009`, `QRG-010` complete).
+**Current milestone:** Milestone 3 — Central image — complete
+(`QRG-009` through `QRG-011`). Milestone 4 — Export — next.
 
-**Recommended next backlog item:** `QRG-011` — Add logo sizing controls
-and warnings (see `BACKLOG.md`).
+**Recommended next backlog item:** `QRG-012` — Implement PNG export (see
+`BACKLOG.md`).
 
 ## Open decisions
 
