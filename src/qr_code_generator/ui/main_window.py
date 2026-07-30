@@ -28,8 +28,8 @@ from qr_code_generator.services.validation_service import (
 from qr_code_generator.ui.colour_control import ColourControl
 
 WINDOW_TITLE = "QR Code Generator"
-WINDOW_SIZE = "480x600"
-WINDOW_MIN_SIZE = (360, 480)
+WINDOW_SIZE = "480x760"
+WINDOW_MIN_SIZE = (360, 600)
 
 
 class MainWindow(ttk.Frame):
@@ -43,6 +43,7 @@ class MainWindow(ttk.Frame):
 
         self._qr_photo: ImageTk.PhotoImage | None = None
         self._foreground_colour: Colour = parse_hex(DEFAULT_FOREGROUND_COLOUR)
+        self._background_colour: Colour = parse_hex(DEFAULT_BACKGROUND_COLOUR)
 
         self._build_widgets()
         self.pack(fill=tk.BOTH, expand=True)
@@ -66,6 +67,16 @@ class MainWindow(ttk.Frame):
         )
         self._foreground_control.pack(fill=tk.X, pady=(0, 8))
 
+        self._background_control = ColourControl(
+            self,
+            title="Background colour",
+            initial=self._background_colour,
+            palette=PALETTE,
+            on_change=self._on_background_changed,
+            on_error=self._show_error,
+        )
+        self._background_control.pack(fill=tk.X, pady=(0, 8))
+
         ttk.Button(self, text="Generate", command=self._on_generate).pack(anchor=tk.W, pady=(0, 12))
 
         preview_frame = ttk.Frame(self, borderwidth=1, relief=tk.SUNKEN)
@@ -83,6 +94,10 @@ class MainWindow(ttk.Frame):
 
     def _on_foreground_changed(self, colour: Colour) -> None:
         self._foreground_colour = colour
+        self._refresh_preview_if_url_valid()
+
+    def _on_background_changed(self, colour: Colour) -> None:
+        self._background_colour = colour
         self._refresh_preview_if_url_valid()
 
     def _refresh_preview_if_url_valid(self) -> None:
@@ -107,7 +122,7 @@ class MainWindow(ttk.Frame):
         settings = QRSettings(
             url=url,
             foreground_colour=self._foreground_colour.to_hex(),
-            background_colour=DEFAULT_BACKGROUND_COLOUR,
+            background_colour=self._background_colour.to_hex(),
         )
         try:
             image = generate_qr_image(settings)

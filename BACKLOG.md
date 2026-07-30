@@ -33,19 +33,20 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 1 complete; Milestone 2 — Colour
-  controls — under way (`QRG-005`, `QRG-006` complete).
-* **Recommended next item:** `QRG-007` — Add background colour controls
-  (reuse `ColourControl`, wired to `QRSettings.background_colour`),
-  followed by `QRG-008` (contrast validation).
+* **Current milestone:** Milestone 2 — Colour controls — under way
+  (`QRG-005`, `QRG-006`, `QRG-007` complete).
+* **Recommended next item:** `QRG-008` — Add contrast and colour safety
+  validation (relative-luminance-based contrast warning, dark-on-light
+  preference, transparency policy).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
   `THIRD_PARTY_NOTICES.md`; `pytest -q` (26 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
-  and long-URL input, plus foreground colour synchronisation, validation
-  and live preview refresh; and a direct pixel check confirming a chosen
-  foreground colour renders in the generated image.
+  and long-URL input, foreground and background colour synchronisation,
+  validation and live preview refresh (independently, and together); and
+  direct pixel checks confirming both chosen colours render correctly in
+  the generated image.
 
 ---
 
@@ -231,12 +232,26 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-007 — Add background colour controls
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** UI controls for background colour selection.
 * **Acceptance criteria:** Equivalent to `QRG-006`, applied to
-  `QRSettings.background_colour`.
-* **Dependencies:** `QRG-005`.
-* **Validation requirements:** As `QRG-006`.
+  `QRSettings.background_colour`. ✅ A second `ColourControl` instance
+  (`MainWindow._background_control`) reuses the same widget built for
+  `QRG-006`; `_on_background_changed` updates `self._background_colour`
+  and triggers the same live-refresh path. `_generate_and_show` now passes
+  `self._background_colour.to_hex()` instead of the fixed
+  `DEFAULT_BACKGROUND_COLOUR` constant.
+* **Validation:** `pytest -q` → 26 passed (unchanged; this item is UI
+  wiring reusing already-tested `colour_service`/`ColourControl` code, as
+  anticipated when `ColourControl` was built as a reusable widget in
+  `QRG-006`). `ruff check .` and `ruff format --check .` → both clean. A
+  scripted Tkinter smoke test set foreground to red and background to
+  yellow simultaneously and confirmed both colours render correctly and
+  independently in the generated image (a red finder-pattern pixel, a
+  yellow quiet-zone pixel), and confirmed invalid input in one control
+  (background RGB `999`) produces a clear error without altering either
+  control's colour.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
 
 ### QRG-008 — Add contrast and colour safety validation
 
