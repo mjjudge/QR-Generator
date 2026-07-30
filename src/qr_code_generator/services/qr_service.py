@@ -14,6 +14,17 @@ ERROR_CORRECTION_LEVEL = "h"
 DEFAULT_SCALE = 10
 
 
+def module_count(url: str) -> int:
+    """The number of modules per side of the QR symbol that would encode `url`.
+
+    Useful for choosing a render scale (e.g. for export) without first
+    rendering a full image.
+    """
+    qr = segno.make(url, error=ERROR_CORRECTION_LEVEL)
+    width, _height = qr.symbol_size(scale=1, border=0)
+    return width
+
+
 def generate_qr_image(settings: QRSettings, scale: int = DEFAULT_SCALE) -> Image.Image:
     """Render the URL in ``settings`` as a QR code image.
 

@@ -216,7 +216,9 @@ Requirement IDs are stable once assigned. Do not renumber or reuse an ID.
 * **FR-047** — Preserve the required quiet zone in exported files.
 * **FR-048** — Never offer JPEG as an output format for the QR code itself
   (JPEG's lossy compression risks corrupting sharp module edges).
-* **FR-049** — Offer a choice of useful PNG output dimensions.
+* **FR-049** — Offer a choice of useful PNG output dimensions: Small
+  (512 px), Medium (1024 px) and Large (2048 px), each rendered at the
+  nearest integer module scale to the target (FR-011).
 * **FR-050** — Ensure SVG output is self-contained (embedded logo included)
   where technically practical, so the file remains usable without external
   references.

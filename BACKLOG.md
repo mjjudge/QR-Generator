@@ -33,21 +33,22 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ## Current state (evidence-based, as of this document's creation)
 
-* **Current milestone:** Milestone 3 — Central image — complete
-  (`QRG-009` through `QRG-011`). Milestone 4 — Export — next.
-* **Recommended next item:** `QRG-012` — Implement PNG export.
+* **Current milestone:** Milestone 4 — Export — under way (`QRG-012`
+  complete).
+* **Recommended next item:** `QRG-013` — Implement SVG export.
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (54 passed); `ruff check .` (all
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (63 passed); `ruff check .` (all
   checks passed); `ruff format --check .` (all files formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
   validation and live preview refresh, contrast/polarity warnings, logo
-  selection/rejection/removal, logo placement with a live decoding check,
-  and logo size adjustment with both reduction and large-but-safe
-  warnings; and direct pixel/byte-level checks confirming chosen colours
-  render correctly, logo files are never modified on disk, and
-  finder-pattern pixels are never touched.
+  selection/rejection/removal, logo placement and size adjustment with a
+  live decoding check, and PNG export (no-URL validation, a plain export,
+  a logo-bearing Large export, and dialog cancellation); and direct
+  pixel/byte-level checks confirming chosen colours render correctly,
+  logo files are never modified on disk, finder-pattern pixels are never
+  touched, and exported files reopen and decode to the exact URL.
 
 ---
 
@@ -461,23 +462,63 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-012 — Implement PNG export
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Save the generated (possibly coloured, possibly
   logo-bearing) QR code as a PNG file.
 * **Acceptance criteria:**
-  * Preset useful output dimensions (FR-049).
-  * Integer module scaling preserved (FR-011, FR-047).
-  * Quiet zone preserved (FR-047).
-  * Logo compositing included when present.
-  * A save dialog; overwrite confirmation (FR-051).
-  * Clear error handling on failure (FR-052).
+  * Preset useful output dimensions (FR-049). ✅
+    `export_service.PNG_SIZE_PRESETS`: Small (512 px), Medium (1024 px,
+    default), Large (2048 px), offered via a read-only dropdown.
+  * Integer module scaling preserved (FR-011, FR-047). ✅
+    `render_png_for_export` regenerates the QR **from scratch** at a
+    scale chosen to land as close as possible to the target size
+    (`qr_service.module_count` gives the exact module count without a
+    full render first), rather than resizing an already-rasterised
+    preview — this keeps every exported pixel a genuine, crisp,
+    integer-scaled module rather than an interpolated blur.
+  * Quiet zone preserved (FR-047). ✅ Unchanged from `qr_service` (the
+    four-module border applies at every scale).
+  * Logo compositing included when present. ✅ `render_png_for_export`
+    takes the current logo and size ratio and calls `apply_logo` at the
+    *export* scale (not the preview scale), so the logo is sized
+    correctly for the resolution actually being exported.
+  * A save dialog; overwrite confirmation (FR-051). ✅ The native
+    `tkinter.filedialog.asksaveasfilename` dialog is used as-is, relying
+    on its built-in "replace existing file?" prompt (standard GTK/Tk
+    behaviour on Ubuntu) rather than a redundant custom confirmation —
+    see the note below on what this does and doesn't let us test.
+  * Clear error handling on failure (FR-052). ✅ `export_service.save_png`
+    wraps the write in `try`/`except OSError`, raising a descriptive
+    `ExportError`; `MainWindow._on_export_png` catches it and shows the
+    message via the status label, and separately validates the URL
+    first (reusing `validate_url`) before ever opening the save dialog.
   * Export-level tests (file is written, is a valid PNG, decodes
-    correctly).
-* **Dependencies:** `QRG-003`; benefits from `QRG-006`–`QRG-010` but does
-  not strictly require them (can export the current black-and-white,
-  logo-free code first).
-* **Validation requirements:** Automated export tests; manual save-dialog
-  check.
+    correctly). ✅ `tests/test_export_service.py` (9 tests): each preset
+    size renders within one module-width of its target; an unknown size
+    label is rejected; a provided logo visibly changes the centre pixel
+    versus no logo; a saved file re-opens as a valid PNG at the right
+    size; the saved file decodes (via `zxingcpp`) to the exact source
+    URL; and an unwritable path (nonexistent parent directory) raises
+    `ExportError` rather than an unhandled `OSError`. Also added
+    `qr_service.module_count` with its own regression test
+    (`test_module_count_matches_the_rendered_image`).
+* **Validation:** `pytest -q` → 63 passed (9 new). `ruff check .` and
+  `ruff format --check .` → both clean. A scripted smoke test
+  (monkeypatching `filedialog.asksaveasfilename` to bypass the native
+  dialog, the same technique used for logo selection in `QRG-009`)
+  exercised: exporting with no URL entered (validation error, no dialog);
+  a plain Medium export that reopens and decodes to the exact URL; a
+  Large export with a logo present, which also decodes correctly at the
+  larger resolution; and cancelling the dialog (empty path) causing no
+  crash and no unwanted status change.
+* **Known limitation — cannot be automated-tested:** the native save
+  dialog's own overwrite-confirmation prompt is standard GTK/Tk behaviour
+  on Ubuntu, not custom code, so there is nothing of ours to unit-test
+  here; it has not been manually verified interactively in this
+  environment (headless-ish sandbox), only reasoned about from documented
+  Tk/GTK behaviour. Worth a manual check on a real Ubuntu desktop.
+* **Documentation impact:** `SPECIFICATION.md` FR-049 updated with the
+  concrete preset sizes.
 
 ### QRG-013 — Implement SVG export
 

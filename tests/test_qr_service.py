@@ -2,7 +2,12 @@ import segno
 from PIL import Image
 
 from qr_code_generator.models.qr_settings import QRSettings
-from qr_code_generator.services.qr_service import ERROR_CORRECTION_LEVEL, generate_qr_image
+from qr_code_generator.services.qr_service import (
+    ERROR_CORRECTION_LEVEL,
+    QUIET_ZONE_MODULES,
+    generate_qr_image,
+    module_count,
+)
 
 
 def test_error_correction_is_always_level_h():
@@ -15,6 +20,13 @@ def test_error_correction_is_always_level_h():
 def test_generates_an_image_for_a_valid_url():
     image = generate_qr_image(QRSettings(url="https://example.com"))
     assert isinstance(image, Image.Image)
+
+
+def test_module_count_matches_the_rendered_image():
+    url = "https://example.com"
+    image = generate_qr_image(QRSettings(url=url), scale=1)
+    # At scale=1 with the standard border, image width = module_count + 2*border.
+    assert module_count(url) == image.width - 2 * QUIET_ZONE_MODULES
 
 
 def test_uses_the_url_supplied_in_settings(monkeypatch):

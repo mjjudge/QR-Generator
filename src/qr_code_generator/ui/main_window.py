@@ -21,6 +21,13 @@ from qr_code_generator.services.colour_service import (
     get_contrast_warning,
     parse_hex,
 )
+from qr_code_generator.services.export_service import (
+    DEFAULT_PNG_SIZE_LABEL,
+    PNG_SIZE_PRESETS,
+    ExportError,
+    render_png_for_export,
+    save_png,
+)
 from qr_code_generator.services.logo_service import (
     DEFAULT_LOGO_SIZE_RATIO,
     MAX_LOGO_SIZE_RATIO,
@@ -121,6 +128,19 @@ class MainWindow(ttk.Frame):
 
         ttk.Button(self, text="Generate", command=self._on_generate).pack(anchor=tk.W, pady=(0, 12))
 
+        export_frame = ttk.Frame(self)
+        export_frame.pack(fill=tk.X, pady=(0, 12))
+        ttk.Label(export_frame, text="Export size:").pack(side=tk.LEFT)
+        self._png_size_var = tk.StringVar(value=DEFAULT_PNG_SIZE_LABEL)
+        ttk.Combobox(
+            export_frame,
+            textvariable=self._png_size_var,
+            values=list(PNG_SIZE_PRESETS),
+            state="readonly",
+            width=16,
+        ).pack(side=tk.LEFT, padx=(4, 12))
+        ttk.Button(export_frame, text="Export PNG…", command=self._on_export_png).pack(side=tk.LEFT)
+
         preview_frame = ttk.Frame(self, borderwidth=1, relief=tk.SUNKEN)
         preview_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         self._preview_label = ttk.Label(preview_frame, anchor=tk.CENTER)
@@ -197,12 +217,45 @@ class MainWindow(ttk.Frame):
             return
         self._generate_and_show(url)
 
-    def _generate_and_show(self, url: str) -> None:
-        settings = QRSettings(
+    def _current_settings(self, url: str) -> QRSettings:
+        return QRSettings(
             url=url,
             foreground_colour=self._foreground_colour.to_hex(),
             background_colour=self._background_colour.to_hex(),
         )
+
+    def _on_export_png(self) -> None:
+        try:
+            url = validate_url(self._url_var.get())
+        except URLValidationError as error:
+            self._status_var.set(str(error))
+            return
+
+        path = filedialog.asksaveasfilename(
+            title="Export as PNG",
+            defaultextension=".png",
+            filetypes=[("PNG image", "*.png")],
+            initialfile="qrcode.png",
+        )
+        if not path:
+            return
+
+        try:
+            image = render_png_for_export(
+                self._current_settings(url),
+                self._png_size_var.get(),
+                logo=self._logo_image,
+                logo_size_ratio=self._logo_size_ratio,
+            )
+            save_png(image, path)
+        except ExportError as error:
+            self._status_var.set(f"Could not export PNG: {error}")
+            return
+
+        self._status_var.set(f"Exported PNG to {Path(path).name}.")
+
+    def _generate_and_show(self, url: str) -> None:
+        settings = self._current_settings(url)
         logo_size_warning = None
         try:
             image = generate_qr_image(settings)

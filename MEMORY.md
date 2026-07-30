@@ -138,6 +138,17 @@ chronological diary — see "Editing rules" at the end.
   structurally prevents requesting above the absolute maximum; warnings
   cover both an actual reduction and a "large but safe" caution at ≥24%
   (`QRG-011`).
+* PNG export (`QRG-012`) always **regenerates** the QR code at a scale
+  chosen for the target output size, rather than resizing the on-screen
+  preview — `qr_service.module_count(url)` gives the exact module count
+  via Segno directly (`symbol_size(scale=1, border=0)`), with no need to
+  render a throwaway image first. The logo, if present, is recomposited
+  at that same export scale, not the preview's scale. Overwrite
+  confirmation relies entirely on the native
+  `tkinter.filedialog.asksaveasfilename` dialog's own built-in prompt —
+  there is no custom overwrite-confirmation code to test, and this
+  reliance has not been manually verified interactively on a real Ubuntu
+  desktop in this environment (see "Open decisions").
 
 ## Repository governance
 
@@ -257,6 +268,14 @@ application, as of this document's creation:
   at 24% and above. Verified directly against the live application: both
   warning types appear appropriately, and the composited result still
   decodes to the exact URL at whatever size was actually applied.
+* PNG export is implemented (`QRG-012`): a size dropdown (Small/Medium/
+  Large) and an "Export PNG…" button, validating the URL first, then
+  using the native save dialog. Verified directly: exporting with no URL
+  entered shows a validation error without opening a dialog; a plain
+  export and a logo-bearing Large export both reopen as valid PNGs and
+  decode (via `zxingcpp`) to the exact source URL; cancelling the dialog
+  does nothing. **Not yet implemented:** SVG export (`QRG-013`); sensible
+  default/safe filenames beyond the fixed `qrcode.png` (`QRG-014`).
 
 **What tests exist:** `tests/test_validation_service.py` (valid HTTP/HTTPS,
 empty input, whitespace-only input, unsupported scheme, unusual-but-valid
@@ -276,15 +295,16 @@ finder-pattern pixels left untouched; and logo-bearing codes decoding to
 the exact URL for both the shortest and a typical URL). All 48 tests
 pass.
 
-**What is not yet implemented:** PNG/SVG export (`export_service.py` is a
-docstring-only placeholder, no save dialog exists); any preferences
-storage; a dedicated decoding test for a plain/coloured (non-logo) QR
-code (remaining `QRG-015` scope); any packaging; any CI configuration.
+**What is not yet implemented:** SVG export (`QRG-013`); sensible
+default/safe filename handling beyond the fixed `qrcode.png`
+(`QRG-014`); any preferences storage; a dedicated decoding test for a
+plain/coloured (non-logo) QR code (remaining `QRG-015` scope); any
+packaging; any CI configuration.
 
-**Current milestone:** Milestone 3 — Central image — complete
-(`QRG-009` through `QRG-011`). Milestone 4 — Export — next.
+**Current milestone:** Milestone 4 — Export — under way (`QRG-012`
+complete).
 
-**Recommended next backlog item:** `QRG-012` — Implement PNG export (see
+**Recommended next backlog item:** `QRG-013` — Implement SVG export (see
 `BACKLOG.md`).
 
 ## Open decisions
@@ -306,6 +326,11 @@ Genuinely unresolved, durable questions:
   to text readability — it was adopted as a documented, defensible
   standard in the absence of a QR-specific one, but has not been checked
   against physical scan testing (`QRG-016`).
+* Whether the native `tkinter.filedialog.asksaveasfilename` overwrite
+  prompt actually appears and behaves as expected on a real Ubuntu
+  desktop — reasoned from documented GTK/Tk behaviour and exercised in
+  automated tests only via monkeypatching (the dialog itself cannot be
+  driven headlessly), so it has not been manually verified interactively.
 * The specific Ubuntu packaging format/tooling detail beyond "PyInstaller is
   the intended default" (e.g. plain PyInstaller bundle vs `.deb` vs
   AppImage).
