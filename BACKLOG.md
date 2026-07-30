@@ -34,13 +34,10 @@ this file is out of date — treat that as a defect to fix immediately.
 ## Current state (evidence-based, as of this document's creation)
 
 * **Current milestone:** Milestone 5 — Scannability and quality — under
-  way (`QRG-015` complete).
-* **Recommended next item:** `QRG-016` — Establish physical scan test
-  matrix. This needs real hardware (an Android phone, an iPhone, a
-  printer) and a human to run it — it cannot be completed by an agent.
-  `QRG-017` (accessibility/keyboard) or `QRG-018` (error-handling
-  hardening) are the next agent-completable items if `QRG-016` is set
-  aside for now.
+  way (`QRG-015`, `QRG-017` complete; `QRG-016` partial, needs a human
+  with real hardware).
+* **Recommended next item:** `QRG-018` — Harden error handling (the last
+  agent-completable item in this milestone).
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
   `THIRD_PARTY_NOTICES.md`; `pytest -q` (81 passed); `ruff check .` (all
@@ -55,11 +52,15 @@ this file is out of date — treat that as a defect to fix immediately.
   pixel/byte-level/XML-structure checks confirming chosen colours render
   correctly, logo files are never modified on disk, finder-pattern pixels
   are never touched, exported PNGs reopen and decode to the exact URL,
-  and exported SVGs are well-formed with untouched vector modules; and,
+  and exported SVGs are well-formed with untouched vector modules;
   outside the test suite, a real user-requested QR code (Rotary blue on
   white, with a transparent-PNG club logo) was generated through the
   actual export pipeline and confirmed to decode correctly from the
-  saved file, at two different logo sizes.
+  saved file, at two different logo sizes, and confirmed by the user to
+  scan correctly on an iPhone from a screen; and a keyboard-accessibility
+  audit (a full 38-stop tab-order walk, synthetic-keyboard activation of
+  the previously mouse-only palette swatches, and a 1.8x font-scale
+  robustness check).
 
 ---
 
@@ -662,34 +663,88 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-016 — Establish physical scan test matrix
 
-* **Status:** Proposed.
+* **Status:** In Progress (partial evidence only — this needs a human with
+  real hardware; an agent cannot complete it).
 * **Objective:** Structured manual scan testing before any
   production-oriented release.
 * **Acceptance criteria:**
-  * Tested on at least one common Android device and one iPhone.
-  * Tested on-screen and on printed paper.
-  * Tested at realistic leaflet size.
-  * Tested under several lighting conditions.
-  * Tested with coloured output and with logos present.
-  * Results recorded (pass/fail per combination) somewhere durable — a
-    location for these results is itself an open decision (see
-    `MEMORY.md`).
-* **Dependencies:** `QRG-010`, `QRG-012`, `QRG-013`.
+  * Tested on at least one common Android device and one iPhone. 🟡
+    iPhone confirmed (on-screen); Android not yet tested.
+  * Tested on-screen and on printed paper. 🟡 On-screen confirmed;
+    printed paper not yet tested (the user's own assessment is "I think
+    it'll be fine from a proper printed leaflet" — an expectation, not a
+    result, and recorded as such rather than upgraded to a pass).
+  * Tested at realistic leaflet size. ❌ Not yet tested at a physical
+    printed size at all.
+  * Tested under several lighting conditions. ❌ Not yet tested.
+  * Tested with coloured output and with logos present. ✅ The real
+    Rotary-blue-on-white, logo-bearing code generated for the user (see
+    `MEMORY.md`) was scanned successfully on an iPhone from a screen.
+  * Results recorded somewhere durable. 🟡 Recorded here and in
+    `MEMORY.md` for now; a more durable/structured location remains an
+    open decision.
+* **Dependencies:** `QRG-010`, `QRG-012`, `QRG-013` (all done).
 * **Validation requirements:** This item's own acceptance criteria are the
-  validation.
+  validation. Remaining: Android device, printed/leaflet-size output, and
+  varied lighting conditions.
 
 ### QRG-017 — Improve accessibility and keyboard operation
 
-* **Status:** Proposed.
+* **Status:** Complete.
 * **Objective:** Meet `SPECIFICATION.md` §11 in full.
 * **Acceptance criteria:**
-  * Reasonable, predictable focus/tab order across all controls.
-  * All primary actions reachable and operable by keyboard alone.
-  * Status messaging never relies on colour alone.
-  * A review of behaviour under OS-level font/scaling changes.
-* **Dependencies:** Best done once `QRG-006`–`QRG-013` add most of the
-  remaining controls, so the full control set can be reviewed together.
-* **Validation requirements:** Manual keyboard-only walkthrough.
+  * Reasonable, predictable focus/tab order across all controls. ✅
+    Verified by walking `tk_focusNext()` from the initial focus (the URL
+    entry) all the way around: 38 stops, covering every interactive
+    control in exactly the visual top-to-bottom order (URL → foreground
+    palette/picker/HEX/RGB/CMYK → background, same → logo
+    choose/remove → size slider → Generate → export size, PNG, SVG),
+    looping back to the start with no dead ends and no skipped controls.
+    No manual tab-order overrides were needed — the natural creation
+    order was already correct.
+  * All primary actions reachable and operable by keyboard alone. ✅
+    Found and fixed a real gap: the six palette colour swatches (in
+    `ui/colour_control.py`, used for both foreground and background) were
+    plain `tk.Label` widgets bound only to `<Button-1>` — mouse-only, with
+    no way to reach or activate them from the keyboard at all. Added
+    `takefocus=True` and `highlightthickness=2` (so they join the tab
+    order and show a visible focus ring using Tk's own built-in
+    focus-highlight mechanism) plus `<Return>`/`<space>` bindings that
+    trigger the exact same `set_colour` action as a mouse click. Verified
+    directly: focusing a swatch and sending a synthetic `<Return>` (and,
+    on a different swatch, `<space>`) changed the control's colour to
+    exactly that swatch's colour. Every other control (`ttk.Entry`,
+    `ttk.Button`, `ttk.Combobox`, `ttk.Scale`) was already
+    keyboard-operable out of the box via standard ttk behaviour.
+  * Status messaging never relies on colour alone. ✅ Already true before
+    this item: the status label uses one fixed colour
+    (`foreground="#444444"`) for every message — success, warning and
+    error alike — so meaning has only ever come from the message text,
+    never from colour-coding. No change needed; confirmed by inspection.
+  * A review of behaviour under OS-level font/scaling changes. ✅/🟡
+    Scripted check: rebuilt the window with every named Tk font scaled
+    to 1.8x its default size. The application still constructs, updates
+    and generates a QR code without error, and the window remains
+    user-resizable in both dimensions (`root.resizable()` →
+    `(True, True)`) — the built-in Tk mechanism for a user to compensate
+    if content feels cramped. **Found and recorded, not fixed:** at that
+    1.8x scale, the content's requested height (943px) exceeds the
+    fixed initial window height (760px) — about 24% short — so some
+    content would be below the fold until the user manually resizes the
+    window. The window does not auto-grow to fit larger fonts. This is a
+    real, verified limitation, not a crash or data-loss risk, and is
+    listed as a candidate for a future increase to the default window
+    size or a scroll region, rather than fixed speculatively now. A true
+    OS-level "change the system text-scaling setting and look at it"
+    check on a real Ubuntu desktop was not possible in this environment
+    and remains genuinely unverified.
+* **Validation:** `pytest -q` → 81 passed (unchanged — this item is UI
+  wiring plus scripted structural checks, not new pure-logic behaviour
+  requiring new unit tests). `ruff check .` and `ruff format --check .`
+  → both clean. Three scripted checks as described above: keyboard
+  activation of palette swatches, a full tab-order walk, and a font-scale
+  robustness check.
+* **Documentation impact:** None beyond this entry and `MEMORY.md`.
 
 ### QRG-018 — Harden error handling
 

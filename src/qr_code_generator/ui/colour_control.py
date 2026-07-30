@@ -74,9 +74,13 @@ class ColourControl(ttk.LabelFrame):
                 borderwidth=1,
                 background=swatch_colour.to_hex(),
                 cursor="hand2",
+                takefocus=True,
+                highlightthickness=2,
             )
             swatch.pack(side=tk.LEFT, padx=1)
             swatch.bind("<Button-1>", lambda _event, c=swatch_colour: self.set_colour(c))
+            swatch.bind("<Return>", lambda _event, c=swatch_colour: self.set_colour(c))
+            swatch.bind("<space>", lambda _event, c=swatch_colour: self.set_colour(c))
 
         ttk.Button(palette_row, text="Pick…", command=self._open_picker).pack(
             side=tk.LEFT, padx=(8, 0)

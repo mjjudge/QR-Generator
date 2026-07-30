@@ -339,19 +339,38 @@ pass.
   requested URL exactly — first at the 18% default logo size, then
   again at 22% after a size increase. This is the first time the
   application has been used for its actual intended purpose rather than
-  synthetic test data.
+  synthetic test data. The user additionally scanned it with an iPhone
+  camera directly from a screen and confirmed it works — genuine
+  physical-device evidence for `QRG-016`, though only one data point
+  (iPhone, on-screen, one colour/logo combination) out of that item's
+  full matrix (also needs Android, printed paper, leaflet size, varied
+  lighting). The user expects printed leaflets to work too but has not
+  yet tested that; recorded as an expectation, not a result.
+
+* Accessibility and keyboard operation were audited and one real gap
+  fixed (`QRG-017`): the palette colour swatches were mouse-only (plain
+  `tk.Label`s with only a `<Button-1>` binding); they now take keyboard
+  focus and activate on `<Return>`/`<space>`, verified directly with
+  synthetic keyboard events. A full tab-order walk (38 stops) confirmed
+  every interactive control is reachable in a sensible order with no
+  manual overrides needed. Status messages already used one fixed colour
+  for every message, so meaning never depended on colour. At 1.8x
+  default font scale the app still runs correctly and the window remains
+  user-resizable, but does **not** auto-grow — content can run about 24%
+  taller than the fixed initial window height at that scale, requiring a
+  manual resize. A true OS-level scaling check on a real desktop remains
+  unverified in this environment.
 
 **What is not yet implemented:** any preferences storage (including a
 remembered last export directory — deliberately deferred, not an
 oversight); any packaging; any CI configuration.
 
 **Current milestone:** Milestone 5 — Scannability and quality — under
-way (`QRG-015` complete).
+way (`QRG-015`, `QRG-017` complete; `QRG-016` partial, needs a human with
+real hardware).
 
-**Recommended next backlog item:** `QRG-016` — Establish physical scan
-test matrix, but this needs real hardware and a human, not an agent (see
-`BACKLOG.md`). `QRG-017` or `QRG-018` are the next agent-completable
-items.
+**Recommended next backlog item:** `QRG-018` — Harden error handling (see
+`BACKLOG.md`) — the last agent-completable item in this milestone.
 
 ## Open decisions
 
@@ -383,6 +402,12 @@ Genuinely unresolved, durable questions:
   the logo geometry proven identical to the already-decode-tested PNG
   path) is considered sufficient indefinitely. Not added yet — judged
   disproportionate for this task (`QRG-013`).
+* Whether the fixed initial window size (`WINDOW_SIZE`,
+  `ui/main_window.py`) should be increased, or a scroll region added, to
+  accommodate large OS-level font scaling without requiring a manual
+  resize — found during `QRG-017` (content can run ~24% taller than the
+  window at 1.8x default font scale) but deliberately not fixed
+  speculatively; the window is user-resizable in the meantime.
 * The specific Ubuntu packaging format/tooling detail beyond "PyInstaller is
   the intended default" (e.g. plain PyInstaller bundle vs `.deb` vs
   AppImage).
