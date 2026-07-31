@@ -35,17 +35,20 @@ this file is out of date — treat that as a defect to fix immediately.
 
 * **Current milestone:** Milestone 5 — Scannability and quality —
   agent-completable work done (`QRG-015`, `QRG-017`, `QRG-018` complete;
-  `QRG-016` partial, needs a human with real hardware). Milestone 6
-  (Packaging and release) is the only fully agent-completable work
-  remaining, though `QRG-019`–`QRG-022` mostly depend on `QRG-016` first.
-* **Recommended next item:** None purely agent-completable remains
-  without `QRG-016`. If the user wants to keep going regardless,
-  `QRG-020` (continuous integration) has no hard dependency on physical
-  scan testing and could reasonably be pulled forward.
+  `QRG-016` partial, needs a human with real hardware). `QRG-020`
+  (Milestone 6) was pulled forward and is also complete.
+* **Recommended next item:** None purely agent-completable remains.
+  `QRG-019`, `QRG-021` and `QRG-022` all depend on a functionally
+  complete, scan-validated application (`QRG-016`) before they can be
+  meaningfully done — packaging and release documentation for an
+  application not yet proven to scan reliably when printed would be
+  premature. `QRG-016` itself needs a human with real hardware.
 * **Evidence used to set statuses below:** full read-through of every file
   in `src/`, `tests/`, `pyproject.toml`, `README.md`, `LICENSE`, and
-  `THIRD_PARTY_NOTICES.md`; `pytest -q` (81 passed); `ruff check .` (all
-  checks passed); `ruff format --check .` (all files formatted);
+  `THIRD_PARTY_NOTICES.md`; `pytest -q` (82 passed) run in a completely
+  fresh virtual environment (not the already-populated development one);
+  `ruff check .` (all checks passed); `ruff format --check .` (all files
+  formatted);
   scripted Tkinter smoke tests exercising valid, empty, unsupported-scheme
   and long-URL input, foreground and background colour synchronisation,
   validation and live preview refresh, contrast/polarity warnings, logo
@@ -61,10 +64,15 @@ this file is out of date — treat that as a defect to fix immediately.
   white, with a transparent-PNG club logo) was generated through the
   actual export pipeline and confirmed to decode correctly from the
   saved file, at two different logo sizes, and confirmed by the user to
-  scan correctly on an iPhone from a screen; and a keyboard-accessibility
+  scan correctly on an iPhone from a screen; a keyboard-accessibility
   audit (a full 38-stop tab-order walk, synthetic-keyboard activation of
   the previously mouse-only palette swatches, and a 1.8x font-scale
-  robustness check).
+  robustness check); a systematic error-handling audit against every
+  case in `SPECIFICATION.md` §12, which found and fixed two real bugs
+  (an oversized-image crash, and export not catching unexpected
+  failures) by reproducing each one directly before fixing it; and a
+  new GitHub Actions CI workflow, whose exact command sequence was
+  verified in a fresh virtual environment prior to being pushed.
 
 ---
 
@@ -828,15 +836,41 @@ this file is out of date — treat that as a defect to fix immediately.
 
 ### QRG-020 — Add continuous integration
 
-* **Status:** Proposed.
+* **Status:** Complete (pulled forward, per its own "could reasonably be
+  pulled forward" note — no dependency on `QRG-016`).
 * **Objective:** Automated `pytest` and Ruff checks on every change.
 * **Acceptance criteria:**
-  * CI runs tests and Ruff against the supported Python version(s).
+  * CI runs tests and Ruff against the supported Python version(s). ✅
+    `.github/workflows/ci.yml`: a matrix job across Python 3.11, 3.12,
+    3.13 and 3.14 (the full range from the declared minimum in
+    `pyproject.toml`, `requires-python = ">=3.11"`, up to the version
+    used for local development), running `pytest`, `ruff check .` and
+    `ruff format --check .` on every push to `main` and every pull
+    request.
   * No automatic publishing step unless separately, explicitly approved.
-* **Dependencies:** None — could reasonably be pulled forward if desired,
-  but is sequenced here as it is not required for the current manual
-  workflow.
-* **Validation requirements:** A green CI run on a representative change.
+    ✅ The workflow only tests and lints; it has no build, package or
+    deploy step of any kind.
+* **Why no Tkinter/display setup was needed:** confirmed by grep that no
+  test file or service/model module imports `tkinter` at all — the UI
+  layer (`ui/main_window.py`, `ui/colour_control.py`) has no automated
+  pytest coverage by design (see `AGENTS.md`'s established pattern:
+  UI wiring is verified by scripted smoke tests during development, not
+  pytest, so `pytest` stays runnable in headless/display-less
+  environments — which is exactly what a CI runner is). So CI needs
+  neither `python3-tk` nor a virtual display (Xvfb) for `pytest` to pass.
+  A full GUI-launch smoke test in CI (which would need both) remains a
+  possible future enhancement, not added here — scope stayed to this
+  item's explicit acceptance criteria.
+* **Validation:** Before ever pushing the workflow, the exact sequence
+  (`pip install -e ".[dev]"`, `pytest`, `ruff check .`,
+  `ruff format --check .`) was run in a **completely fresh** virtual
+  environment (not the already-populated development one) to catch any
+  dependency-resolution issue that wouldn't surface otherwise: all 82
+  tests passed, both Ruff checks passed. A real green run of the GitHub
+  Actions workflow itself (the item's own stated validation requirement)
+  can only be confirmed after this is pushed and Actions actually runs —
+  recorded as pending real-world confirmation, not claimed in advance.
+* **Documentation impact:** Added a CI status badge to `README.md`.
 
 ### QRG-021 — Prepare initial release documentation
 

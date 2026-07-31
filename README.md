@@ -1,5 +1,7 @@
 # QR Code Generator
 
+[![CI](https://github.com/mjjudge/QR-Generator/actions/workflows/ci.yml/badge.svg)](https://github.com/mjjudge/QR-Generator/actions/workflows/ci.yml)
+
 A lightweight, offline QR code generator for Ubuntu desktops.
 
 ## Project status

@@ -64,7 +64,15 @@ chronological diary — see "Editing rules" at the end.
   ".[dev]"`.
 * PyInstaller remains the intended eventual Ubuntu packaging approach (not
   yet attempted or validated — see `BACKLOG.md` `QRG-019`).
-* No CI configuration exists yet (see `BACKLOG.md` `QRG-020`).
+* CI (`QRG-020`, pulled forward from Milestone 6 — no dependency on
+  physical scan testing) runs `pytest`, `ruff check .` and
+  `ruff format --check .` on Python 3.11–3.14 via GitHub Actions
+  (`.github/workflows/ci.yml`) on every push to `main` and every pull
+  request. No build, package or publish step exists. No `python3-tk` or
+  virtual display is needed in CI: no test file or service/model module
+  imports `tkinter` at all (confirmed by grep) — the UI layer has no
+  automated pytest coverage by design (see "Repository governance"
+  below), so the whole suite is display-independent.
 * `zxing-cpp` is a **development-only** dependency (a pip extra under
   `dev`, not a runtime dependency), used solely to prove in automated
   tests that generated QR codes — including logo-bearing ones — decode
@@ -372,19 +380,27 @@ pass.
   already handled by earlier work and re-confirmed by reading the actual
   code, not recalled from memory.
 
+* CI now runs automatically on every push/PR (`QRG-020`), pulled forward
+  from Milestone 6 since it has no dependency on physical scan testing.
+  Its exact command sequence was verified in a fresh virtual environment
+  before ever being pushed; a real green GitHub Actions run can only be
+  confirmed once Actions has actually executed it.
+
 **What is not yet implemented:** any preferences storage (including a
 remembered last export directory — deliberately deferred, not an
-oversight); any packaging; any CI configuration.
+oversight); any packaging.
 
 **Current milestone:** Milestone 5 — Scannability and quality —
 agent-completable work complete (`QRG-015`, `QRG-017`, `QRG-018`;
-`QRG-016` partial, needs a human with real hardware).
+`QRG-016` partial, needs a human with real hardware). `QRG-020`
+(Milestone 6) also complete, pulled forward.
 
-**Recommended next backlog item:** No purely agent-completable item
-remains in Milestone 5 without `QRG-016` (needs a human with real
-hardware). `QRG-020` (continuous integration, Milestone 6) has no hard
-dependency on it and could reasonably be pulled forward if the user
-wants to keep going (see `BACKLOG.md`).
+**Recommended next backlog item:** None purely agent-completable.
+`QRG-019`, `QRG-021` and `QRG-022` (packaging, release docs, final
+release validation) all depend on `QRG-016` first — packaging an
+application not yet proven to scan reliably when printed would be
+premature. `QRG-016` needs a human with real hardware (see
+`BACKLOG.md`).
 
 ## Open decisions
 
